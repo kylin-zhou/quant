@@ -16,7 +16,7 @@ import torch.optim as optim
 
 from .base import Model
 from .utils import get_or_create_path
-from .utils import get_module_logger
+from .utils import get_logger
 
 class LSTM(Model):
     """LSTM Model
@@ -42,16 +42,17 @@ class LSTM(Model):
         n_epochs=200,
         lr=0.001,
         metric="",
-        batch_size=2000,
+        batch_size=32,
         early_stop=20,
         loss="mse",
         optimizer="adam",
         GPU=0,
         seed=None,
+        log_path=None,
         **kwargs
     ):
         # Set logger.
-        self.logger = get_module_logger("LSTM")
+        self.logger = get_logger(log_path=log_path) # get_module_logger("LSTM")
         self.logger.info("LSTM pytorch version...")
 
         # set hyper-parameters.
@@ -149,8 +150,8 @@ class LSTM(Model):
 
     def train_epoch(self, x_train, y_train):
 
-        x_train_values = x_train.values
-        y_train_values = np.squeeze(y_train.values)
+        x_train_values = x_train
+        y_train_values = np.squeeze(y_train)
 
         self.lstm_model.train()
 
@@ -176,8 +177,8 @@ class LSTM(Model):
     def test_epoch(self, data_x, data_y):
 
         # prepare training data
-        x_values = data_x.values
-        y_values = np.squeeze(data_y.values)
+        x_values = data_x
+        y_values = np.squeeze(data_y)
 
         self.lstm_model.eval()
 
@@ -205,17 +206,17 @@ class LSTM(Model):
 
     def fit(
         self,
-        dataset,
+        train_data,
+        valid_data,
         evals_result=dict(),
         save_path=None,
     ):
 
-        df_train, df_valid = dataset
-        if df_train.empty or df_valid.empty:
+        if not train_data or not valid_data:
             raise ValueError("Empty data from dataset, please check your dataset config.")
 
-        x_train, y_train = df_train["feature"], df_train["label"]
-        x_valid, y_valid = df_valid["feature"], df_valid["label"]
+        x_train, y_train = train_data
+        x_valid, y_valid = valid_data
 
         save_path = get_or_create_path(save_path)
         stop_steps = 0
@@ -258,14 +259,13 @@ class LSTM(Model):
         if self.use_gpu:
             torch.cuda.empty_cache()
 
-    def predict(self, dataset):
+    def predict(self, test_data):
         if not self.fitted:
             raise ValueError("model is not fitted yet!")
 
-        x_test = dataset
-        index = x_test.index
+        x_test = test_data
         self.lstm_model.eval()
-        x_values = x_test.values
+        x_values = x_test
         sample_num = x_values.shape[0]
         preds = []
 
@@ -279,7 +279,7 @@ class LSTM(Model):
                 pred = self.lstm_model(x_batch).detach().cpu().numpy()
             preds.append(pred)
 
-        return pd.Series(np.concatenate(preds), index=index)
+        return np.concatenate(preds)
 
 
 class LSTMModel(nn.Module):

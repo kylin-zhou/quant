@@ -16,7 +16,7 @@ import torch.optim as optim
 
 from .base import Model
 from .utils import get_or_create_path, count_parameters
-from .utils import get_module_logger
+from .utils import get_logger
 
 
 class ALSTM(Model):
@@ -52,7 +52,7 @@ class ALSTM(Model):
         **kwargs
     ):
         # Set logger.
-        self.logger = get_module_logger("ALSTM")
+        self.logger = get_logger()
         self.logger.info("ALSTM pytorch version...")
 
         # set hyper-parameters.

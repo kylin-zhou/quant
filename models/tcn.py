@@ -13,16 +13,12 @@ import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.nn.utils import weight_norm
 
 
 from .base import Model
 from .utils import get_or_create_path, count_parameters
-from .utils import get_module_logger
-
-# MIT License
-# Copyright (c) 2018 CMU Locus Lab
-import torch.nn as nn
-from torch.nn.utils import weight_norm
+from .utils import get_logger
 
 
 class Chomp1d(nn.Module):
@@ -132,7 +128,7 @@ class TCN(Model):
         **kwargs
     ):
         # Set logger.
-        self.logger = get_module_logger("TCN")
+        self.logger = get_logger()
         self.logger.info("TCN pytorch version...")
 
         # set hyper-parameters.
