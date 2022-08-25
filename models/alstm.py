@@ -43,16 +43,17 @@ class ALSTM(Model):
         n_epochs=200,
         lr=0.001,
         metric="",
-        batch_size=2000,
+        batch_size=32,
         early_stop=20,
         loss="mse",
         optimizer="adam",
         GPU=0,
         seed=None,
+        log_path=None,
         **kwargs
     ):
         # Set logger.
-        self.logger = get_logger()
+        self.logger = get_logger(log_path=log_path) 
         self.logger.info("ALSTM pytorch version...")
 
         # set hyper-parameters.
@@ -153,8 +154,8 @@ class ALSTM(Model):
 
     def train_epoch(self, x_train, y_train):
 
-        x_train_values = x_train.values
-        y_train_values = np.squeeze(y_train.values)
+        x_train_values = x_train
+        y_train_values = np.squeeze(y_train)
 
         self.ALSTM_model.train()
 
@@ -180,8 +181,8 @@ class ALSTM(Model):
     def test_epoch(self, data_x, data_y):
 
         # prepare training data
-        x_values = data_x.values
-        y_values = np.squeeze(data_y.values)
+        x_values = data_x
+        y_values = np.squeeze(data_y)
 
         self.ALSTM_model.eval()
 
@@ -210,17 +211,17 @@ class ALSTM(Model):
 
     def fit(
         self,
-        dataset,
+        train_data,
+        valid_data,
         evals_result=dict(),
         save_path=None,
     ):
 
-        df_train, df_valid = dataset
-        if df_train.empty or df_valid.empty:
+        if not train_data or not valid_data:
             raise ValueError("Empty data from dataset, please check your dataset config.")
 
-        x_train, y_train = df_train["feature"], df_train["label"]
-        x_valid, y_valid = df_valid["feature"], df_valid["label"]
+        x_train, y_train = train_data
+        x_valid, y_valid = valid_data
 
         save_path = get_or_create_path(save_path)
         stop_steps = 0
@@ -263,14 +264,13 @@ class ALSTM(Model):
         if self.use_gpu:
             torch.cuda.empty_cache()
 
-    def predict(self, dataset, segment: Union[Text, slice] = "test"):
+    def predict(self, test_data, segment: Union[Text, slice] = "test"):
         if not self.fitted:
             raise ValueError("model is not fitted yet!")
 
-        x_test = dataset
-        index = x_test.index
+        x_test = test_data
         self.ALSTM_model.eval()
-        x_values = x_test.values
+        x_values = x_test
         sample_num = x_values.shape[0]
         preds = []
 
@@ -288,7 +288,7 @@ class ALSTM(Model):
 
             preds.append(pred)
 
-        return pd.Series(np.concatenate(preds), index=index)
+        return np.concatenate(preds)
 
 
 class ALSTMModel(nn.Module):

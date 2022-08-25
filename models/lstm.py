@@ -293,6 +293,7 @@ class LSTMModel(nn.Module):
             batch_first=True,
             dropout=dropout,
         )
+        self.norm = nn.LayerNorm(hidden_size)
         self.fc_out = nn.Linear(hidden_size, 1)
 
         self.d_feat = d_feat
@@ -302,4 +303,5 @@ class LSTMModel(nn.Module):
         x = x.reshape(len(x), self.d_feat, -1)  # [N, F, T]
         x = x.permute(0, 2, 1)  # [N, T, F]
         out, _ = self.rnn(x)
+        out = self.norm(out)
         return self.fc_out(out[:, -1, :]).squeeze()

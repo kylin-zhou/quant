@@ -11,8 +11,9 @@ df = if0_df
 # 相对前日涨跌幅
 close_change = df.loc[1:,"close"].values - df.loc[:(df.shape[0]-2),"close"].values
 close_change = np.hstack([[0], close_change])
-df["label"] = (df["close"] - df["open"]).apply(lambda x:1 if x>0 else 0)
 df["close_change"] = (close_change / df.loc[:,"close"].values) * 100
+
+df["label"] = df["close_change"]# (df["close"] - df["open"]).apply(lambda x:1 if x>0 else 0)
 
 # volume 波动
 # volume_change = df.loc[1:,"volume"].values - df.loc[:(df.shape[0]-2),"volume"].values
@@ -38,24 +39,41 @@ df = df.drop(["open","high","low","close","volume"], axis=1)
 df.head()
 
 
-train_df = df[df["datetime"] < '2020-07-01']
-train_data = train_df.drop(["datetime","label"], axis=1).values, train_df["label"].values
+def split_sequences(df, window=60, step=1):
+    X,y = [],[]
+    for i in range(0, df.shape[0]-window-1, step):
+        X.append(df.iloc[i:window+i,:].values)
+        y.append(df.loc[i+window,"label"])
 
-valid_df = df[(df["datetime"] > "2020-07-01") & (df["datetime"] < "2021-01-01")]
-valid_data = valid_df.drop(["datetime","label"], axis=1).values, valid_df["label"].values
+    return np.array(X), np.array(y)
 
-test_df = df[df["datetime"] > "2022-01-01"]
-test_data = test_df.drop(["datetime","label"], axis=1).values, test_df["label"].values
+from copy import deepcopy
 
-print(train_df.tail(),valid_df.tail(), test_df.tail())
+train_df = df[df["datetime"] < '2021-07-01'].reset_index(drop=True)
+valid_df = df[(df["datetime"] > "2021-07-01") & (df["datetime"] < "2022-01-01")].reset_index(drop=True)
+test_df = df[df["datetime"] > "2022-01-01"].reset_index(drop=True)
+
+print(train_df.shape,valid_df.shape, test_df.shape)
+
+train_data = split_sequences(df=deepcopy(train_df.drop(["datetime"], axis=1)))
+valid_data = split_sequences(df=deepcopy(valid_df.drop(["datetime"], axis=1)))
+test_data = split_sequences(df=deepcopy(test_df.drop(["datetime"], axis=1)))
+
 
 sys.path.append("D:/quant")
-from models import LSTMModel, LSTM
+from models import LSTM, ALSTM, TCN
 
-lstm = LSTM(train_data[0].shape[1], log_path="./")
-lstm.fit(train_data,
+model = LSTM(d_feat=train_data[0].shape[2], log_path="./")
+model.fit(train_data,
         valid_data,
         save_path="D:/quant/checkpoint/model.pt")
 
-preds = lstm.predict(test_data[0])
-print(preds)
+preds = model.predict(test_data[0])
+print(preds.shape)
+
+import matplotlib.pyplot as plt
+
+plt.plot(range(len(preds)), test_data[1], label="true")
+plt.plot(range(len(preds)), preds, label="pred")
+plt.legend()
+plt.show()
