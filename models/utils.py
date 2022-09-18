@@ -66,7 +66,7 @@ def count_parameters(models_or_parameters, unit="m"):
 
 import logging
 
-def get_logger(log_path=None):
+def get_logger(output_path=None):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     # Create a standard formatter
@@ -79,8 +79,10 @@ def get_logger(log_path=None):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    if log_path is not None:
-        log_file = os.path.join(log_path, "log.txt")
+    if output_path:
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        log_file = os.path.join(output_path, "log.txt")
         fh = logging.FileHandler(log_file, mode="a", encoding="utf-8")
         fh.setLevel(logging.INFO)
         fh.setFormatter(formatter)

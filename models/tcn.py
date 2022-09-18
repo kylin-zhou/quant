@@ -16,12 +16,12 @@ import torch.optim as optim
 from torch.nn.utils import weight_norm
 
 
-from .base import Model
+from .base import BaseModel
 from .utils import get_or_create_path, count_parameters
 from .utils import get_logger
 
 
-class TCN(Model):
+class TCN(BaseModel):
     """TCN Model
 
     Parameters
@@ -116,185 +116,25 @@ class TCN(Model):
             np.random.seed(self.seed)
             torch.manual_seed(self.seed)
 
-        self.tcn_model = TCNModel(
+        self.model = TCNModel(
             num_input=self.d_feat,
             output_size=1,
             num_channels=[self.n_chans] * self.num_layers,
             kernel_size=self.kernel_size,
             dropout=self.dropout,
         )
-        self.logger.info("model:\n{:}".format(self.tcn_model))
-        self.logger.info("model size: {:.4f} MB".format(count_parameters(self.tcn_model)))
+        self.logger.info("model:\n{:}".format(self.model))
+        self.logger.info("model size: {:.4f} MB".format(count_parameters(self.model)))
 
         if optimizer.lower() == "adam":
-            self.train_optimizer = optim.Adam(self.tcn_model.parameters(), lr=self.lr)
+            self.train_optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         elif optimizer.lower() == "gd":
-            self.train_optimizer = optim.SGD(self.tcn_model.parameters(), lr=self.lr)
+            self.train_optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
         else:
             raise NotImplementedError("optimizer {} is not supported!".format(optimizer))
 
         self.fitted = False
-        self.tcn_model.to(self.device)
-
-    @property
-    def use_gpu(self):
-        return self.device != torch.device("cpu")
-
-    def mse(self, pred, label):
-        loss = (pred - label) ** 2
-        return torch.mean(loss)
-
-    def loss_fn(self, pred, label):
-        mask = ~torch.isnan(label)
-
-        if self.loss == "mse":
-            return self.mse(pred[mask], label[mask])
-
-        raise ValueError("unknown loss `%s`" % self.loss)
-
-    def metric_fn(self, pred, label):
-
-        mask = torch.isfinite(label)
-
-        if self.metric in ("", "loss"):
-            return -self.loss_fn(pred[mask], label[mask])
-
-        raise ValueError("unknown metric `%s`" % self.metric)
-
-    def train_epoch(self, x_train, y_train):
-
-        x_train_values = x_train.values
-        y_train_values = np.squeeze(y_train.values)
-
-        self.tcn_model.train()
-
-        indices = np.arange(len(x_train_values))
-        np.random.shuffle(indices)
-
-        for i in range(len(indices))[:: self.batch_size]:
-
-            if len(indices) - i < self.batch_size:
-                break
-
-            feature = torch.from_numpy(x_train_values[indices[i : i + self.batch_size]]).float().to(self.device)
-            label = torch.from_numpy(y_train_values[indices[i : i + self.batch_size]]).float().to(self.device)
-
-            pred = self.tcn_model(feature)
-            loss = self.loss_fn(pred, label)
-
-            self.train_optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_value_(self.tcn_model.parameters(), 3.0)
-            self.train_optimizer.step()
-
-    def test_epoch(self, data_x, data_y):
-        x_values = data_x.values
-        y_values = np.squeeze(data_y.values)
-
-        self.tcn_model.eval()
-
-        scores = []
-        losses = []
-
-        indices = np.arange(len(x_values))
-
-        for i in range(len(indices))[:: self.batch_size]:
-
-            if len(indices) - i < self.batch_size:
-                break
-
-            feature = torch.from_numpy(x_values[indices[i : i + self.batch_size]]).float().to(self.device)
-            label = torch.from_numpy(y_values[indices[i : i + self.batch_size]]).float().to(self.device)
-
-            with torch.no_grad():
-                pred = self.tcn_model(feature)
-                loss = self.loss_fn(pred, label)
-                losses.append(loss.item())
-
-                score = self.metric_fn(pred, label)
-                scores.append(score.item())
-
-        return np.mean(losses), np.mean(scores)
-
-    def fit(
-        self,
-        dataset,
-        evals_result=dict(),
-        save_path=None,
-    ):
-
-        df_train, df_valid = dataset
-
-        x_train, y_train = df_train["feature"], df_train["label"]
-        x_valid, y_valid = df_valid["feature"], df_valid["label"]
-
-        save_path = get_or_create_path(save_path)
-        stop_steps = 0
-        train_loss = 0
-        best_score = -np.inf
-        best_epoch = 0
-        evals_result["train"] = []
-        evals_result["valid"] = []
-
-        # train
-        self.logger.info("training...")
-        self.fitted = True
-
-        for step in range(self.n_epochs):
-            self.logger.info("Epoch%d:", step)
-            self.logger.info("training...")
-            self.train_epoch(x_train, y_train)
-            self.logger.info("evaluating...")
-            train_loss, train_score = self.test_epoch(x_train, y_train)
-            val_loss, val_score = self.test_epoch(x_valid, y_valid)
-            self.logger.info("train %.6f, valid %.6f" % (train_score, val_score))
-            evals_result["train"].append(train_score)
-            evals_result["valid"].append(val_score)
-
-            if val_score > best_score:
-                best_score = val_score
-                stop_steps = 0
-                best_epoch = step
-                best_param = copy.deepcopy(self.tcn_model.state_dict())
-            else:
-                stop_steps += 1
-                if stop_steps >= self.early_stop:
-                    self.logger.info("early stop")
-                    break
-
-        self.logger.info("best score: %.6lf @ %d" % (best_score, best_epoch))
-        self.tcn_model.load_state_dict(best_param)
-        torch.save(best_param, save_path)
-
-        if self.use_gpu:
-            torch.cuda.empty_cache()
-
-    def predict(self, dataset, segment: Union[Text, slice] = "test"):
-        if not self.fitted:
-            raise ValueError("model is not fitted yet!")
-
-        x_test = dataset
-        index = x_test.index
-        self.tcn_model.eval()
-        x_values = x_test.values
-        sample_num = x_values.shape[0]
-        preds = []
-
-        for begin in range(sample_num)[:: self.batch_size]:
-
-            if sample_num - begin < self.batch_size:
-                end = sample_num
-            else:
-                end = begin + self.batch_size
-
-            x_batch = torch.from_numpy(x_values[begin:end]).float().to(self.device)
-
-            with torch.no_grad():
-                pred = self.tcn_model(x_batch).detach().cpu().numpy()
-
-            preds.append(pred)
-
-        return pd.Series(np.concatenate(preds), index=index)
+        self.model.to(self.device)
 
 
 class Chomp1d(nn.Module):

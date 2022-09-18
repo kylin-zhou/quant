@@ -155,3 +155,4 @@ data
 qlib-core
 vnpy*
 checkpoint
+logs

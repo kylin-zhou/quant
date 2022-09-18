@@ -1,5 +1,6 @@
 import akshare as ak
 
+# https://akshare.akfamily.xyz/data/futures/futures.html#id54
 symbol_exchange = {'V0': 'dce',
     'P0': 'dce',
     'B0': 'dce',
@@ -68,16 +69,20 @@ symbol_exchange = {'V0': 'dce',
     'TS0': 'cffex',
     'IM0': 'cffex'}
 
-symbol = "SC0"
-exchange = symbol_exchange[symbol]
-start_date = "20100101"
-end_date="20220801"
+symbol_exchange = {'MA0': 'czce'}
 
-print("futures:", symbol, exchange)
-futures_df = ak.futures_main_sina(symbol, start_date=start_date, end_date=end_date).iloc[:,:6]
-print(futures_df.columns)
-futures_df.columns = ['datetime','open','high','low','close','volume']
+for symbol in symbol_exchange.keys():
+    # symbol = "SC0"
+    exchange = symbol_exchange[symbol]
+    start_date = "2010-01-01"
+    end_date="2022-08-01"
 
-print(futures_df.head())
+    print("futures:", symbol, exchange)
+    futures_df = ak.futures_main_sina(symbol, start_date=start_date, end_date=end_date).iloc[:,:6]
+    print(futures_df.columns)
+    futures_df.columns = ['datetime','open','high','low','close','volume']
 
-futures_df.to_csv(f"data/{symbol}.{exchange}.csv", index=False)
+    print(futures_df.head())
+    print(futures_df.shape)
+
+    # futures_df.to_csv(f"data/futures/{symbol}.{exchange}.csv", index=False)

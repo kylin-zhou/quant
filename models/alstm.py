@@ -14,12 +14,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from .base import Model
+from .base import BaseModel
 from .utils import get_or_create_path, count_parameters
 from .utils import get_logger
 
 
-class ALSTM(Model):
+class ALSTM(BaseModel):
     """ALSTM Model
 
     Parameters
@@ -44,7 +44,7 @@ class ALSTM(Model):
         lr=0.001,
         metric="",
         batch_size=32,
-        early_stop=20,
+        early_stop=3,
         loss="mse",
         optimizer="adam",
         GPU=0,
@@ -108,187 +108,24 @@ class ALSTM(Model):
             np.random.seed(self.seed)
             torch.manual_seed(self.seed)
 
-        self.ALSTM_model = ALSTMModel(
+        self.model = ALSTMModel(
             d_feat=self.d_feat,
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
             dropout=self.dropout,
         )
-        self.logger.info("model:\n{:}".format(self.ALSTM_model))
-        self.logger.info("model size: {:.4f} MB".format(count_parameters(self.ALSTM_model)))
+        self.logger.info("model:\n{:}".format(self.model))
+        self.logger.info("model size: {:.4f} MB".format(count_parameters(self.model)))
 
         if optimizer.lower() == "adam":
-            self.train_optimizer = optim.Adam(self.ALSTM_model.parameters(), lr=self.lr)
+            self.train_optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         elif optimizer.lower() == "gd":
-            self.train_optimizer = optim.SGD(self.ALSTM_model.parameters(), lr=self.lr)
+            self.train_optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
         else:
             raise NotImplementedError("optimizer {} is not supported!".format(optimizer))
 
         self.fitted = False
-        self.ALSTM_model.to(self.device)
-
-    @property
-    def use_gpu(self):
-        return self.device != torch.device("cpu")
-
-    def mse(self, pred, label):
-        loss = (pred - label) ** 2
-        return torch.mean(loss)
-
-    def loss_fn(self, pred, label):
-        mask = ~torch.isnan(label)
-
-        if self.loss == "mse":
-            return self.mse(pred[mask], label[mask])
-
-        raise ValueError("unknown loss `%s`" % self.loss)
-
-    def metric_fn(self, pred, label):
-
-        mask = torch.isfinite(label)
-
-        if self.metric in ("", "loss"):
-            return -self.loss_fn(pred[mask], label[mask])
-
-        raise ValueError("unknown metric `%s`" % self.metric)
-
-    def train_epoch(self, x_train, y_train):
-
-        x_train_values = x_train
-        y_train_values = np.squeeze(y_train)
-
-        self.ALSTM_model.train()
-
-        indices = np.arange(len(x_train_values))
-        np.random.shuffle(indices)
-
-        for i in range(len(indices))[:: self.batch_size]:
-
-            if len(indices) - i < self.batch_size:
-                break
-
-            feature = torch.from_numpy(x_train_values[indices[i : i + self.batch_size]]).float().to(self.device)
-            label = torch.from_numpy(y_train_values[indices[i : i + self.batch_size]]).float().to(self.device)
-
-            pred = self.ALSTM_model(feature)
-            loss = self.loss_fn(pred, label)
-
-            self.train_optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_value_(self.ALSTM_model.parameters(), 3.0)
-            self.train_optimizer.step()
-
-    def test_epoch(self, data_x, data_y):
-
-        # prepare training data
-        x_values = data_x
-        y_values = np.squeeze(data_y)
-
-        self.ALSTM_model.eval()
-
-        scores = []
-        losses = []
-
-        indices = np.arange(len(x_values))
-
-        for i in range(len(indices))[:: self.batch_size]:
-
-            if len(indices) - i < self.batch_size:
-                break
-
-            feature = torch.from_numpy(x_values[indices[i : i + self.batch_size]]).float().to(self.device)
-            label = torch.from_numpy(y_values[indices[i : i + self.batch_size]]).float().to(self.device)
-
-            with torch.no_grad():
-                pred = self.ALSTM_model(feature)
-                loss = self.loss_fn(pred, label)
-                losses.append(loss.item())
-
-                score = self.metric_fn(pred, label)
-                scores.append(score.item())
-
-        return np.mean(losses), np.mean(scores)
-
-    def fit(
-        self,
-        train_data,
-        valid_data,
-        evals_result=dict(),
-        save_path=None,
-    ):
-
-        if not train_data or not valid_data:
-            raise ValueError("Empty data from dataset, please check your dataset config.")
-
-        x_train, y_train = train_data
-        x_valid, y_valid = valid_data
-
-        save_path = get_or_create_path(save_path)
-        stop_steps = 0
-        train_loss = 0
-        best_score = -np.inf
-        best_epoch = 0
-        evals_result["train"] = []
-        evals_result["valid"] = []
-
-        # train
-        self.logger.info("training...")
-        self.fitted = True
-
-        for step in range(self.n_epochs):
-            self.logger.info("Epoch%d:", step)
-            self.logger.info("training...")
-            self.train_epoch(x_train, y_train)
-            self.logger.info("evaluating...")
-            train_loss, train_score = self.test_epoch(x_train, y_train)
-            val_loss, val_score = self.test_epoch(x_valid, y_valid)
-            self.logger.info("train %.6f, valid %.6f" % (train_score, val_score))
-            evals_result["train"].append(train_score)
-            evals_result["valid"].append(val_score)
-
-            if val_score > best_score:
-                best_score = val_score
-                stop_steps = 0
-                best_epoch = step
-                best_param = copy.deepcopy(self.ALSTM_model.state_dict())
-            else:
-                stop_steps += 1
-                if stop_steps >= self.early_stop:
-                    self.logger.info("early stop")
-                    break
-
-        self.logger.info("best score: %.6lf @ %d" % (best_score, best_epoch))
-        self.ALSTM_model.load_state_dict(best_param)
-        torch.save(best_param, save_path)
-
-        if self.use_gpu:
-            torch.cuda.empty_cache()
-
-    def predict(self, test_data, segment: Union[Text, slice] = "test"):
-        if not self.fitted:
-            raise ValueError("model is not fitted yet!")
-
-        x_test = test_data
-        self.ALSTM_model.eval()
-        x_values = x_test
-        sample_num = x_values.shape[0]
-        preds = []
-
-        for begin in range(sample_num)[:: self.batch_size]:
-
-            if sample_num - begin < self.batch_size:
-                end = sample_num
-            else:
-                end = begin + self.batch_size
-
-            x_batch = torch.from_numpy(x_values[begin:end]).float().to(self.device)
-
-            with torch.no_grad():
-                pred = self.ALSTM_model(x_batch).detach().cpu().numpy()
-
-            preds.append(pred)
-
-        return np.concatenate(preds)
+        self.model.to(self.device)
 
 
 class ALSTMModel(nn.Module):
@@ -316,6 +153,7 @@ class ALSTMModel(nn.Module):
             batch_first=True,
             dropout=self.dropout,
         )
+        self.norm = nn.LayerNorm(self.hid_size)
         self.fc_out = nn.Linear(in_features=self.hid_size * 2, out_features=1)
         self.att_net = nn.Sequential()
         self.att_net.add_module(
@@ -335,6 +173,7 @@ class ALSTMModel(nn.Module):
         inputs = inputs.view(len(inputs), self.input_size, -1)
         inputs = inputs.permute(0, 2, 1)  # [batch, input_size, seq_len] -> [batch, seq_len, input_size]
         rnn_out, _ = self.rnn(self.net(inputs))  # [batch, seq_len, num_directions * hidden_size]
+        rnn_out = self.norm(rnn_out)
         attention_score = self.att_net(rnn_out)  # [batch, seq_len, 1]
         out_att = torch.mul(rnn_out, attention_score)
         out_att = torch.sum(out_att, dim=1)
