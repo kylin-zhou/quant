@@ -102,19 +102,66 @@ class StrategyClass(bt.Strategy):
  
             # self.data.close是表示收盘价
             # 收盘价大于histo，买入
-            if self.macd > 0 and self.signal > 0 and self.histo > 0:
+            # if self.macd > 0 and self.signal > 0 and self.histo > 0:
+            if self.macd > self.signal:
                 self.log('BUY CREATE,{}'.format(self.dataclose[0]))
+                self.log('BUY Price,{}'.format(self.position.price))
                 self.order = self.buy(self.datas[0])
  
         else:
  
             # 收盘价小于等于histo，卖出
-            if self.macd <= 0 or self.signal <= 0 or self.histo <= 0:
+            # if self.macd <= 0 or self.signal <= 0 or self.histo <= 0:
+            if self.macd < self.signal:
                 self.log('BUY CREATE,{}'.format(self.dataclose[0]))
                 self.log('Pos size %s' % self.position.size)
                 self.order = self.sell(self.datas[0])
  
  
+ 
+class MAstrategy(bt.Strategy):
+	# when initializing the instance, create a 100-day MA indicator using the closing price
+	def __init__(self):
+		self.ma = bt.indicators.SimpleMovingAverage(self.data.close, period=100)
+		self.order = None
+ 
+	def next(self):
+		if self.order:
+			return
+		if not self.position: # check if you already have a position in the market
+			if (self.data.close[0] > self.ma[0]) & (self.data.close[-1] < self.ma[-1]):
+				self.log('Buy Create, %.2f' % self.data.close[0])
+				self.order = self.buy(size=10) # buy when closing price today crosses above MA.
+			if (self.data.close[0] < self.ma[0]) & (self.data.close[-1] > self.ma[-1]):
+				self.log('Sell Create, %.2f' % self.data.close[0])
+				self.order = self.sell(size=10)  # sell when closing price today below MA
+		else:
+		# This means you are in a position, and hence you need to define exit strategy here.
+			if len(self) >= (self.bar_executed + 4):
+				self.log('Position Closed, %.2f' % self.data.close[0])
+				self.order = self.close()
+ 
+	# outputting information
+	def log(self, txt):
+		dt=self.datas[0].datetime.date(0)
+		print('%s, %s' % (dt.isoformat(), txt))
+   
+	def notify_order(self, order):
+		if order.status == order.Completed:
+			if order.isbuy():
+				self.log(
+				"Executed BUY (Price: %.2f, Value: %.2f, Commission %.2f)" %
+				(order.executed.price, order.executed.value, order.executed.comm))
+			else:
+				self.log(
+				"Executed SELL (Price: %.2f, Value: %.2f, Commission %.2f)" %
+				(order.executed.price, order.executed.value, order.executed.comm))
+			self.bar_executed = len(self)
+		elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+			self.log("Order was canceled/margin/rejected")
+		self.order = None
+
+
 def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-08-01'):
  
     history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
@@ -151,7 +198,7 @@ cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
                              stocklike=False)
 
 # 加入策略
-cerebro.addstrategy(StrategyClass)
+cerebro.addstrategy(MAstrategy)
 # 回测时需要添加 PyFolio 分析器
 cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
 cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
