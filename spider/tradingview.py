@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
 # Date: 2022/09/18
 
-"""File Summary
+"""爬取trading view交易观点
 """

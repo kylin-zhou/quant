@@ -115,7 +115,7 @@ class StrategyClass(bt.Strategy):
                 self.order = self.sell(self.datas[0])
  
  
-def get_data(trader_code="AU0", start_date='2019-01-01', end_date='2022-08-01'):
+def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-08-01'):
  
     history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
     # 处理字段命名，以符合 Backtrader 的要求
@@ -138,7 +138,7 @@ def get_data(trader_code="AU0", start_date='2019-01-01', end_date='2022-08-01'):
     return data
  
 cerebro = bt.Cerebro()
-cerebro.adddata(get_data(trader_code="AU0"), name='IF')
+cerebro.adddata(get_data(trader_code="MA0"), name='IF')
 
 # 初始资金 100,000
 start_cash = 100000
