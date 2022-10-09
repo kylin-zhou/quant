@@ -35,6 +35,7 @@ class StrategyClass(bt.Strategy):
         # 指标必须要定义在策略类中的初始化函数中
         # 准备第一个标的沪深300主力合约的close、high、low 行情数据
         self.close = self.datas[0].close
+        self.open = self.datas[0].open
         self.high = self.datas[0].high
         self.low = self.datas[0].low
 
@@ -45,11 +46,12 @@ class StrategyClass(bt.Strategy):
         self.TR = bt.ind.Max((self.high(0)-self.low(0)), # 当日最高价-当日最低价
                                     abs(self.high(0)-self.close(-1)), # abs(当日最高价−前一日收盘价)
                                     abs(self.low(0)-self.close(-1))) # abs(当日最低价-前一日收盘价)
-        self.ATR = bt.ind.SimpleMovingAverage(self.TR, period=10, subplot=False)
+        self.ATR = bt.ind.SimpleMovingAverage(self.TR, period=5, subplot=False)
 
         self.order = None     
         self.buy_count = 0 # 记录买入次数
         # self.last_price = 0 # 记录买入价格
+        self.max_cash = 0
 
                 
     def log(self, txt, dt=None):
@@ -62,35 +64,46 @@ class StrategyClass(bt.Strategy):
         if self.order: # 检查是否有指令等待执行, 如果还有订单在执行中，就不做新的仓位调整
             return
         
+        self.last_price = self.position.price
+        self.max_cash = max(self.broker.getvalue(), self.max_cash)
+
         # 如果当前持有多单
         if self.position.size > 0 :
-            print(self.last_price, self.close[0], self.close[-1], self.TR[-1])
+            self.log("last_price {} close {} max_cash {} atr {} cash {}"
+                .format(self.last_price, self.close[0], self.max_cash, self.ATR[0], self.broker.getvalue())
+            )
+            # self.order = self.sell(size=abs(self.position.size))
             # 多单止损
-            if (self.close[0] - self.close[-1]) < -0.5*self.TR[0]:
-            # if self.close[0] < (self.last_price - 5*self.ATR[0]):
+            if (self.close[0] - self.last_price) < -0.5*self.ATR[0]:
                 self.log("多单止损")
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
-            # # 多单止盈
-            # elif (self.close[0] - self.close[-1]) <= -1*self.ATR[0]:
-            #     print("多单止盈")
-            #     self.order = self.sell(size=abs(self.position.size))
-            #     self.buy_count = 0 
+                self.max_cash = self.broker.getvalue()
+            # 多单止盈
+            elif 1-self.broker.getvalue()/self.max_cash > 0.1:
+                self.log("多单止盈")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
                 
         # 如果当前持有空单
         elif self.position.size < 0 :  
-            print(self.last_price, self.close[0], self.close[-1], self.TR[-1])        
+            self.log("last_price {} close {} max_cash {} atr {}"
+                .format(self.last_price, self.close[0], self.max_cash, self.ATR[0])
+            )
+            # self.order = self.buy(size=abs(self.position.size))
             # 空单止损：当价格上涨至ATR时止损平仓
-            if (self.close[0] - self.close[-1]) > 0.5*self.TR[0]:
-            # if self.close[0] > (self.last_price + 5*self.ATR[0]):
+            if (self.close[0] - self.last_price) > 0.5*self.ATR[0]:
                 self.log("空单止损")
                 self.order = self.buy(size=abs(self.position.size))
                 self.buy_count = 0
-            # # 空单止盈：当价格突破20日最高点时止盈平仓
-            # elif (self.close[0] - self.close[-1]) > 1*self.ATR[0]:
-            #     print("空单止盈")
-            #     self.order = self.buy(size=abs(self.position.size))
-            #     self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+            # 空单止盈：当价格突破20日最高点时止盈平仓
+            elif 1-self.broker.getvalue()/self.max_cash > 0.1:
+                self.log("空单止盈")
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
             
         # 如果没有持仓，等待入场时机
         else:
@@ -101,7 +114,6 @@ class StrategyClass(bt.Strategy):
                 self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 self.order = self.buy(size=self.buy_unit)
-                self.last_price = self.close[0] # 记录买入价格
                 self.buy_count = 1  # 记录本次交易价格
             # 入场: 做空
             elif self.signal[0] < self.sell_signal and self.signal[-1] < self.sell_signal:
@@ -110,7 +122,6 @@ class StrategyClass(bt.Strategy):
                 self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 self.order = self.sell(size=self.buy_unit)
-                self.last_price = self.close[0] # 记录买入价格
                 self.buy_count = 1  # 记录本次交易价格
             else:
                 self.log("等待……")
@@ -162,7 +173,7 @@ class PandasData_more(bt.feeds.PandasData):
     # -1表示自动按列明匹配数据，也可以设置为线在数据源中列的位置索引 (('pe',6),('pb',7),) 
     params=(('signal', -1),)
 
-def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-20'):
+def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-25'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
@@ -182,9 +193,8 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-20'):
     print(history_df.tail())
     feature_df = get_feature_df(history_df)
     feature_label_data = get_feature_label(feature_df)
-    model = pickle.load(open("D:/quant/checkpoint/clf_ma.pickle","rb"))
+    model = pickle.load(open("D:/quant/checkpoint/clf_ta.pickle","rb"))
     pred = model.predict_proba(feature_label_data[0])[:,1]
-    print(history_df.head())
 
     # 把 date 作为日期索引，以符合 Backtrader 的要求
     feature_df.index = pd.to_datetime(feature_df['date'])
@@ -218,6 +228,7 @@ cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时�
 cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn') # 年化收益率
 cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio') # 夏普比率
 cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown') # 回撤
+cerebro.addwriter(bt.WriterFile, csv=True, out='log.csv')
 
 result = cerebro.run() # 运行回测系统
 # 从返回的 result 中提取回测结果

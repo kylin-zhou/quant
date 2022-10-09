@@ -3,6 +3,7 @@ import sys
 import glob
 import pathlib
 from copy import deepcopy
+from collections import Counter
 from itertools import combinations
 import warnings
 warnings.filterwarnings("ignore")
@@ -12,23 +13,22 @@ import numpy as np
 import talib
 from sklearn import preprocessing
 
-
-FUTURE = 5
+FUTURE = 10
 TASK = "clf"
 
 def get_ma_feature(df):
-    periods = np.arange(2,25)
+    periods = np.arange(3,25)
     for i in periods:
-        df[f"ma{i}"] = talib.SMA(df["close"], timeperiod=i)
-        df[f"ema{i}"] = talib.EMA(df["close"], timeperiod=i)
-        df[f"kama{i}"] = talib.KAMA(df["close"], timeperiod=i)
+        # df[f"ma{i}"] = talib.SMA(df["close"], timeperiod=i)
+        ma = talib.EMA(df["close"], timeperiod=i)
+        # df[f"kama{i}"] = talib.KAMA(df["close"], timeperiod=i)
         # df[f"open_ma{i}"] = talib.EMA(df["open"], timeperiod=i)
-        df[f"ma{i}_close"] = df[f"ma{i}"] - df["close"]
+        df[f"ma{i}_close"] = ma - df["close"]
         
-    combines = combinations(periods, 2)
-    for i in combines:
-        if i[0] < i[1]:
-            df[f"ma{i[0]}-{i[1]}"] = df[f"ma{i[0]}"] - df[f"ma{i[1]}"]
+    # combines = combinations(periods, 2)
+    # for i in combines:
+    #     if i[0] < i[1]:
+    #         df[f"ma{i[0]}-{i[1]}"] = df[f"ma{i[0]}"] - df[f"ma{i[1]}"]
             
     # combines = combinations(periods, 3)
     # for i in combines:
@@ -37,21 +37,19 @@ def get_ma_feature(df):
 
 def get_add_feature(df):
     low, high, close = df["low"], df["high"], df["close"]
-    
-    # Bollinger Bands 
-    upperband, middleband, lowerband = talib.BBANDS(close, timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
-    df["upperband"], df["middleband"], df["lowerband"] = upperband, middleband, lowerband
-    
-    # SAR
-    SAR = talib.SAR(high, low, acceleration=0, maximum=0)
-    df["sar"] = SAR
-    
+
     # Support and resistance
-    periods = np.arange(2,25)
+    periods = np.arange(3,25)
     for i in periods:
-        df[f"support_{i}"] = df["close"].rolling(window=i).min()
-        df[f"resistance_{i}"] = df["close"].rolling(window=i).max()
-        df[f"shock_{i}"] = df["close"].rolling(window=i).std()
+        df[f"support_{i}"] = df["close"].rolling(window=i).min() - df["close"]
+        df[f"resistance_{i}"] = df["close"].rolling(window=i).max() - df["close"]
+        df[f"shock_{i}"] = df["close"].rolling(window=i).std() - df["close"]
+        
+        df[f"up_count_{i}"] = (df["close"] - df["close"].shift(1)).apply(lambda x:1 if x>0 else 0)\
+        .rolling(window=i).apply(lambda x:Counter(x)[1]) / i
+        
+        df[f"momentum_{i}"] = df["close"] / df["close"].shift(i) - 1
+        
 
 def get_momentum_feature(df):
     low, high, close = df["low"], df["high"], df["close"]
@@ -140,6 +138,13 @@ def get_close_change(df, base="close"):
     base_change_rate = base_change * 100
     return np.hstack([base_change_rate,[0]*gap])
 
+def get_label(close, avg_close, std_close):
+    if (avg_close > close+std_close):
+        return 1
+    elif (avg_close < close-std_close):
+        return 0
+    else:
+        return 2
 
 def get_feature_df(df):
     df = deepcopy(df)
@@ -164,17 +169,21 @@ def get_feature_df(df):
         # labels = close_change
         # df["label"] = np.array(list(map(lambda x:1 if x>0 else 0, labels)))
         window = FUTURE
-        close_change = df["close"].rolling(window=window).mean().shift(-window)
-        df["label"] = (close_change - df["close"]).apply(lambda x: 1 if x>0 else 0)
+        avg_close = df["close"].rolling(window=window).mean().shift(-window)
+        # std_close = df["close"].rolling(window=window).std().shift(-window)
+        # future_df = pd.concat([df["close"], avg_close, std_close], axis=1)
+        # future_df.columns = ["close","avg_close","std_close"]
+        # df["label"] = future_df.apply(lambda x: get_label(x.close,x.avg_close,x.std_close), axis=1)
+        df["label"] = (avg_close - df["close"]).apply(lambda x: 1 if x>0 else 0)
     if TASK=="reg":
-        df["label"] = close_change
+        df["label"] = avg_close
     
     # calculate factor
-    get_ma_feature(df)
+    # get_ma_feature(df)
     get_add_feature(df)
-    get_momentum_feature(df)
-    get_volume_feature(df)
-    get_volatility_feature(df)
+    # get_momentum_feature(df)
+    # get_volume_feature(df)
+    # get_volatility_feature(df)
     
     # drop anomaly value
     df = df.dropna().reset_index(drop=True)
@@ -182,10 +191,12 @@ def get_feature_df(df):
     df = df.drop([len(df)-1], axis=0).reset_index(drop=True)
     return df
 
+
 def get_feature_label(df):
-    feature_df = df.drop(["date","label"],axis=1)
+    feature_df = df.drop(["date","open","high","low","close","volume","label"],axis=1)
     # feature_df = (feature_df-feature_df.min())/(feature_df.max()-feature_df.min())
     feature_df = (feature_df-feature_df.mean())/(feature_df.std())
+    feature_df = feature_df.dropna().reset_index(drop=True)
     features = feature_df.values
     labels = df["label"].values
     return features, labels

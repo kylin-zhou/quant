@@ -45,6 +45,8 @@ class TurtleTradingStrategy(bt.Strategy):
         if self.order:
             return  
                 
+        self.last_price = self.position.price
+
         # 如果当前持有多单
         if self.position.size > 0 :
             # 多单加仓:价格上涨了买入价的0.5的ATR且加仓次数少于等于3次
@@ -56,7 +58,7 @@ class TurtleTradingStrategy(bt.Strategy):
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 # self.sizer.p.stake = self.buy_unit
                 self.order = self.buy(size=self.buy_unit)
-                self.last_price = self.position.price # 获取买入价格
+                # self.last_price = self.position.price # 获取买入价格
                 self.buy_count = self.buy_count + 1
             #多单止损：当价格回落2倍ATR时止损平仓
             elif self.datas[0].close < (self.last_price - 2*self.ATR[0]):
@@ -81,7 +83,7 @@ class TurtleTradingStrategy(bt.Strategy):
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 # self.sizer.p.stake = self.buy_unit
                 self.order = self.sell(size=self.buy_unit)
-                self.last_price = self.position.price # 获取买入价格
+                # self.last_price = self.position.price # 获取买入价格
                 self.buy_count = self.buy_count + 1              
             #空单止损：当价格上涨至2倍ATR时止损平仓
             elif self.datas[0].close < (self.last_price+2*self.ATR[0]):
@@ -104,7 +106,7 @@ class TurtleTradingStrategy(bt.Strategy):
                 self.buy_unit = max((self.broker.getvalue()*0.005)/(self.ATR*300*0.1),1)
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 self.order = self.buy(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
+                # self.last_price = self.position.price # 记录买入价格
                 self.buy_count = 1  # 记录本次交易价格
             #入场: 价格跌破下轨线且空仓时，做空
             elif self.CrossoverL < 0 and self.buy_count == 0:
@@ -113,7 +115,7 @@ class TurtleTradingStrategy(bt.Strategy):
                 self.buy_unit = max((self.broker.getvalue()*0.005)/(self.ATR*300*0.1),1)
                 self.buy_unit = int(self.buy_unit) # 交易单位为手
                 self.order = self.sell(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
+                # self.last_price = self.position.price # 记录买入价格
                 self.buy_count = 1  # 记录本次交易价格
         
     # 打印订单日志
@@ -172,7 +174,7 @@ class TurtleTradingStrategy(bt.Strategy):
   
 # 准备股票日线数据，输入到backtrader
 # 利用 AKShare 获取股票的后复权数据，这里只获取前 6 列
-IF_price = ak.futures_main_sina("MA0", start_date='2022-01-01', end_date='2023-01-01').iloc[:, :6]
+IF_price = ak.futures_main_sina("MA0", start_date='2022-01-01', end_date='2022-09-01').iloc[:, :6]
 # 处理字段命名，以符合 Backtrader 的要求
 IF_price.columns = [
     'date',
@@ -186,8 +188,8 @@ IF_price.columns = [
 IF_price.index = pd.to_datetime(IF_price['date'])
 
 datafeed = bt.feeds.PandasData(dataname=IF_price,
-                           fromdate=pd.to_datetime('2017-01-01'),
-                           todate=pd.to_datetime('2022-04-30'))
+                           fromdate=pd.to_datetime('2022-01-01'),
+                           todate=pd.to_datetime('2022-09-01'))
                            
 # 创建主控制器
 cerebro = bt.Cerebro()

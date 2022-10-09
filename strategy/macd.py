@@ -18,7 +18,7 @@ macd_dif < macd_emd, 死叉卖出, 做空
 TR止损
 """
  
-class StrategyClass(bt.Strategy):
+class MACDStrategyClass(bt.Strategy):
     '''#平滑异同移动平均线MACD
         DIF(蓝线): 计算12天平均和26天平均的差，公式：EMA(C,12)-EMA(c,26)
        Signal(DEM或DEA或MACD) (红线): 计算macd9天均值，公式：Signal(DEM或DEA或MACD)：EMA(MACD,9)
@@ -34,87 +34,32 @@ class StrategyClass(bt.Strategy):
     def __init__(self):
         # sma源码位于indicators\macd.py
         # 指标必须要定义在策略类中的初始化函数中
-        # 准备第一个标的沪深300主力合约的close、high、low 行情数据
         self.close = self.datas[0].close
+        self.open = self.datas[0].open
         self.high = self.datas[0].high
         self.low = self.datas[0].low
 
-        self.macd_dif, self.macd_dea, self.macd_hist = ta.MACD(
-            np.array(self.close), fastperiod=12, slowperiod=26,signalperiod=9)
-
-        self.TR = ta.TRANGE(np.array(self.high), np.array(self.low), np.array(self.close))
+        macd = bt.ind.MACD()
+        self.macd = macd.macd
+        self.signal = macd.signal
+        self.histo = bt.ind.MACDHisto()
  
-        self.order = None     
-        self.buy_count = 0 # 记录买入次数
-        self.last_price = 0 # 记录买入价格
-                
+        self.kd = bt.ind.Stochastic(self.data)
+
+        self.TR = bt.ind.Max((self.high(0)-self.low(0)), # 当日最高价-当日最低价
+                                    abs(self.high(0)-self.close(-1)), # abs(当日最高价−前一日收盘价)
+                                    abs(self.low(0)-self.close(-1))) # abs(当日最低价-前一日收盘价)
+        self.ATR = bt.ind.SimpleMovingAverage(self.TR, period=5, subplot=False)
+ 
+        self.order = None
+        self.buyprice = None
+        self.buycomm = None
+ 
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
         dt = dt or self.datas[0].datetime.date(0)
         print('%s, %s' % (dt.isoformat(), txt))
-
-    def next(self):
  
-        if self.order: # 检查是否有指令等待执行, 如果还有订单在执行中，就不做新的仓位调整
-            return
- 
-        # 如果当前持有多单
-        # if self.position.size > 0 :
-        if self.getposition(self.datas[0]).size > 0:
-            #多单止损：当价格回落2倍ATR时止损平仓
-            if (self.close[-1] - self.close[-2]) <= -0.92*self.TR[-1]: 
-            # if self.datas[0].close < (self.last_price - 2*self.ATR[0]):
-                print('elif self.datas[0].close < (self.last_price - 2*self.ATR[0]):')
-                self.order = self.sell(size=abs(self.position.size))
-                self.buy_count = 0
-            # 反手做空
-            elif self.macd_dif[-1] < self.macd_dea[-1]:
-                print('self.CrossoverL < 0 and self.buy_count == 0')
-                # 计算建仓单位：self.ATR*期货合约乘数300*保证金比例0.1
-                self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
-                self.buy_unit = int(self.buy_unit) # 交易单位为手
-                self.order = self.sell(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
-                self.buy_count = 1  # 记录本次交易价格
-                
-        # 如果当前持有空单
-        elif self.position.size < 0 :          
-            #空单止损：当价格上涨至2倍ATR时止损平仓
-            if (self.close[-1] - self.close[-2]) <= -0.92*self.TR[-1]: 
-            # if self.datas[0].close < (self.last_price+2*self.ATR[0]):
-                print('self.datas[0].close < (self.last_price+2*self.ATR[0])')
-                self.order = self.buy(size=abs(self.position.size))
-                self.buy_count = 0
-            # 反手做多
-            elif self.macd_dif[-1] > self.macd_dea[-1]:
-                print('if self.CrossoverH > 0 and self.buy_count == 0:')
-                # 计算建仓单位：self.ATR*期货合约乘数300*保证金比例0.1
-                self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
-                self.buy_unit = int(self.buy_unit) # 交易单位为手
-                self.order = self.buy(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
-                self.buy_count = 1  # 记录本次交易价格
-                
-        else: # 如果没有持仓，等待入场时机
-            #入场: 价格突破上轨线且空仓时，做多
-            if self.macd_dif[-1] > self.macd_dea[-1]:
-                print('if self.CrossoverH > 0 and self.buy_count == 0:')
-                # 计算建仓单位：self.ATR*期货合约乘数300*保证金比例0.1
-                self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
-                self.buy_unit = int(self.buy_unit) # 交易单位为手
-                self.order = self.buy(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
-                self.buy_count = 1  # 记录本次交易价格
-            #入场: 价格跌破下轨线且空仓时，做空
-            elif self.macd_dif[-1] < self.macd_dea[-1]:
-                print('self.CrossoverL < 0 and self.buy_count == 0')
-                # 计算建仓单位：self.ATR*期货合约乘数300*保证金比例0.1
-                self.buy_unit = max((self.broker.getvalue()*0.005)/(self.TR[-1]*300*0.1),1)
-                self.buy_unit = int(self.buy_unit) # 交易单位为手
-                self.order = self.sell(size=self.buy_unit)
-                self.last_price = self.position.price # 记录买入价格
-                self.buy_count = 1  # 记录本次交易价格
-
     def notify_cashvalue(self, cash, value):
         self.log('Cash %s Value %s' % (cash, value))
  
@@ -156,10 +101,69 @@ class StrategyClass(bt.Strategy):
  
         self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
                  (trade.pnl, trade.pnlcomm))
+ 
+    def next(self):
+ 
+        if self.order: # 检查是否有指令等待执行,
+            return
+ 
+        self.last_price = self.position.price
 
+        # 如果当前持有多单
+        if self.position.size > 0 :
+            print(self.last_price, self.open[0], self.close[0], self.ATR[0])  
+            # 多单止损
+            if (self.close[0] - self.last_price) < -0.5*self.ATR[0]:
+                self.log("多单止损")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0
+            # 多单止盈
+            elif (self.close[0] - self.close[-1]) <= -1*self.ATR[0]:
+                self.log("多单止盈")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0 
+                
+        # 如果当前持有空单
+        elif self.position.size < 0 :  
+            print(self.last_price, self.open[0], self.close[0], self.ATR[0])        
+            # 空单止损：当价格上涨至ATR时止损平仓
+            if (self.close[0] - self.last_price) > 0.5*self.ATR[0]:
+                self.log("空单止损")
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+            # 空单止盈：当价格突破20日最高点时止盈平仓
+            elif (self.close[0] - self.close[-1]) > 1*self.ATR[0]:
+                self.log("空单止盈")
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+            
+        # 如果没有持仓，等待入场时机
+        else:
+            # Simply log the closing price of the series from the reference
+            self.log('Close, %.2f' % self.close[0])
+            # Check if we are in the market
+    
+            # self.data.close是表示收盘价
+            # 收盘价大于histo，买入
+            # if self.macd > 0 and self.signal > 0 and self.histo > 0:
+            if self.macd > self.signal and self.macd[-1] < self.signal[-1]:
+                self.log('BUY CREATE,{}'.format(self.close[0]))
+                self.log('BUY Price,{}'.format(self.position.price))
+                self.log("做多")
+                self.order = self.buy(self.datas[0],size=1)
+
+
+            # 收盘价小于等于histo，卖出
+            # if self.macd <= 0 or self.signal <= 0 or self.histo <= 0:
+            if self.macd < self.signal and self.macd[-1] > self.signal[-1]:
+                self.log('BUY CREATE,{}'.format(self.close[0]))
+                self.log('Pos size %s' % self.position.size)
+                self.log("做空")
+                self.order = self.sell(self.datas[0],size=1)
  
  
-def get_data(trader_code="AU0", start_date='2019-01-01', end_date='2022-08-01'):
+ 
+def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
@@ -183,7 +187,7 @@ def get_data(trader_code="AU0", start_date='2019-01-01', end_date='2022-08-01'):
     return data
  
 cerebro = bt.Cerebro()
-cerebro.adddata(get_data(trader_code="AU0"), name='AU')
+cerebro.adddata(get_data(trader_code="MA0"), name='MA')
 
 # 初始资金 100,000
 start_cash = 100000
@@ -196,13 +200,14 @@ cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
                              stocklike=False)
 
 # 加入策略
-cerebro.addstrategy(StrategyClass)
+cerebro.addstrategy(MACDStrategyClass)
 # 回测时需要添加 PyFolio 分析器
 cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
 cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
 cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn') # 年化收益率
 cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio') # 夏普比率
 cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown') # 回撤
+# cerebro.addwriter(bt.WriterFile, csv=True, out='log.csv')
 
 result = cerebro.run() # 运行回测系统
 # 从返回的 result 中提取回测结果

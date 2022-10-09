@@ -16,7 +16,7 @@ macd_dif > macd_ema, 金叉买入
 macd_dif < macd_emd, 死叉卖出
 """
  
-class StrategyClass(bt.Strategy):
+class MACDStrategyClass(bt.Strategy):
     '''#平滑异同移动平均线MACD
         DIF(蓝线): 计算12天平均和26天平均的差，公式：EMA(C,12)-EMA(c,26)
        Signal(DEM或DEA或MACD) (红线): 计算macd9天均值，公式：Signal(DEM或DEA或MACD)：EMA(MACD,9)
@@ -162,7 +162,7 @@ class MAstrategy(bt.Strategy):
 		self.order = None
 
 
-def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-08-01'):
+def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-27'):
  
     history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
     # 处理字段命名，以符合 Backtrader 的要求
@@ -198,7 +198,7 @@ cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
                              stocklike=False)
 
 # 加入策略
-cerebro.addstrategy(MAstrategy)
+cerebro.addstrategy(MACDStrategyClass)
 # 回测时需要添加 PyFolio 分析器
 cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
 cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
