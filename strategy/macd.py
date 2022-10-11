@@ -54,6 +54,7 @@ class MACDStrategyClass(bt.Strategy):
         self.order = None
         self.buyprice = None
         self.buycomm = None
+        self.max_cash = 0
  
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
@@ -108,34 +109,45 @@ class MACDStrategyClass(bt.Strategy):
             return
  
         self.last_price = self.position.price
+        self.max_cash = max(self.broker.getvalue(), self.max_cash)
 
         # 如果当前持有多单
         if self.position.size > 0 :
-            print(self.last_price, self.open[0], self.close[0], self.ATR[0])  
+            self.log("last_price {} close {} max_cash {} atr {} cash {}"
+                .format(self.last_price, self.close[0], self.max_cash, self.ATR[0], self.broker.getvalue())
+            )
+            # self.order = self.sell(size=abs(self.position.size))
             # 多单止损
             if (self.close[0] - self.last_price) < -0.5*self.ATR[0]:
                 self.log("多单止损")
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
             # 多单止盈
-            elif (self.close[0] - self.close[-1]) <= -1*self.ATR[0]:
+            elif 1-self.broker.getvalue()/self.max_cash > 0.1:
                 self.log("多单止盈")
                 self.order = self.sell(size=abs(self.position.size))
-                self.buy_count = 0 
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
                 
         # 如果当前持有空单
         elif self.position.size < 0 :  
-            print(self.last_price, self.open[0], self.close[0], self.ATR[0])        
+            self.log("last_price {} close {} max_cash {} atr {}"
+                .format(self.last_price, self.close[0], self.max_cash, self.ATR[0])
+            )
+            # self.order = self.buy(size=abs(self.position.size))
             # 空单止损：当价格上涨至ATR时止损平仓
             if (self.close[0] - self.last_price) > 0.5*self.ATR[0]:
                 self.log("空单止损")
                 self.order = self.buy(size=abs(self.position.size))
                 self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
             # 空单止盈：当价格突破20日最高点时止盈平仓
-            elif (self.close[0] - self.close[-1]) > 1*self.ATR[0]:
+            elif 1-self.broker.getvalue()/self.max_cash > 0.1:
                 self.log("空单止盈")
                 self.order = self.buy(size=abs(self.position.size))
                 self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
             
         # 如果没有持仓，等待入场时机
         else:
@@ -187,7 +199,7 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-27'):
     return data
  
 cerebro = bt.Cerebro()
-cerebro.adddata(get_data(trader_code="MA0"), name='MA')
+cerebro.adddata(get_data(trader_code="V0"), name='MA')
 
 # 初始资金 100,000
 start_cash = 100000

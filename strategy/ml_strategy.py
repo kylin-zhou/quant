@@ -193,7 +193,7 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-25'):
     print(history_df.tail())
     feature_df = get_feature_df(history_df)
     feature_label_data = get_feature_label(feature_df)
-    model = pickle.load(open("D:/quant/checkpoint/clf_ta.pickle","rb"))
+    model = pickle.load(open("D:/quant/checkpoint/clf_v.pickle","rb"))
     pred = model.predict_proba(feature_label_data[0])[:,1]
 
     # 把 date 作为日期索引，以符合 Backtrader 的要求
@@ -208,7 +208,7 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-25'):
     return data
  
 cerebro = bt.Cerebro()
-cerebro.adddata(get_data(trader_code="MA0"), name='MA')
+cerebro.adddata(get_data(trader_code="V0"), name='MA')
 
 # 初始资金 100,000
 start_cash = 100000

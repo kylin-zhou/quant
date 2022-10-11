@@ -185,7 +185,7 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2022-09-27'):
     return data
  
 cerebro = bt.Cerebro()
-cerebro.adddata(get_data(trader_code="MA0"), name='IF')
+cerebro.adddata(get_data(trader_code="V0"), name='IF')
 
 # 初始资金 100,000
 start_cash = 100000
