@@ -17,13 +17,13 @@ FUTURE = 10
 TASK = "clf"
 
 def get_ma_feature(df):
-    periods = np.arange(3,25)
+    periods = np.arange(3,30)
     for i in periods:
-        # df[f"ma{i}"] = talib.SMA(df["close"], timeperiod=i)
-        ma = talib.EMA(df["close"], timeperiod=i)
+        df[f"ma{i}"] = talib.SMA(df["close"], timeperiod=i)
+        # ma = talib.EMA(df["close"], timeperiod=i)
         # df[f"kama{i}"] = talib.KAMA(df["close"], timeperiod=i)
         # df[f"open_ma{i}"] = talib.EMA(df["open"], timeperiod=i)
-        df[f"ma{i}_close"] = ma - df["close"]
+        # df[f"ma{i}_close"] = ma - df["close"]
         
     # combines = combinations(periods, 2)
     # for i in combines:
@@ -39,7 +39,7 @@ def get_add_feature(df):
     low, high, close = df["low"], df["high"], df["close"]
 
     # Support and resistance
-    periods = np.arange(3,25)
+    periods = np.arange(3,30)
     for i in periods:
         df[f"support_{i}"] = df["close"].rolling(window=i).min() - df["close"]
         df[f"resistance_{i}"] = df["close"].rolling(window=i).max() - df["close"]
@@ -139,9 +139,9 @@ def get_close_change(df, base="close"):
     return np.hstack([base_change_rate,[0]*gap])
 
 def get_label(close, avg_close, std_close):
-    if (avg_close > close+std_close):
+    if (avg_close > close+30):
         return 1
-    elif (avg_close < close-std_close):
+    elif (avg_close < close-30):
         return 0
     else:
         return 2
@@ -170,13 +170,13 @@ def get_feature_df(df):
         # df["label"] = np.array(list(map(lambda x:1 if x>0 else 0, labels)))
         window = FUTURE
         avg_close = df["close"].rolling(window=window).mean().shift(-window)
-        # std_close = df["close"].rolling(window=window).std().shift(-window)
+        # std_close = df["close"].rolling(window=window).std().shift(window)
         # future_df = pd.concat([df["close"], avg_close, std_close], axis=1)
         # future_df.columns = ["close","avg_close","std_close"]
         # df["label"] = future_df.apply(lambda x: get_label(x.close,x.avg_close,x.std_close), axis=1)
         df["label"] = (avg_close - df["close"]).apply(lambda x: 1 if x>0 else 0)
     if TASK=="reg":
-        df["label"] = avg_close
+        df["label"] = close_change
     
     # calculate factor
     # get_ma_feature(df)
@@ -190,7 +190,6 @@ def get_feature_df(df):
     df = df.drop(0, axis=0).reset_index(drop=True)
     df = df.drop([len(df)-1], axis=0).reset_index(drop=True)
     return df
-
 
 def get_feature_label(df):
     feature_df = df.drop(["date","open","high","low","close","volume","label"],axis=1)
