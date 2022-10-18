@@ -16,14 +16,17 @@ import argparse
 from strategy import (
     MACDStrategyClass,
     MAStrategyClass,
-    AMAStrategyClass
+    ETFMAStrategyClass,
+    AMAStrategyClass,
+    ETFAMAStrategyClass
 )
  
 def get_data(trader_code, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     # history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
-    history_df = ak.futures_zh_minute_sina(symbol=trader_code, period="5").iloc[:, :6]
+    # history_df = ak.futures_zh_minute_sina(symbol=trader_code, period="5").iloc[:, :6]
+    history_df = ak.fund_etf_hist_sina(symbol="sh588000")
     # 处理字段命名，以符合 Backtrader 的要求
     history_df.columns = [
         'date',
@@ -107,5 +110,9 @@ if __name__ == "__main__":
         strategy = MAStrategyClass
     if args.strategy == "ama":
         strategy = AMAStrategyClass
+    if args.strategy == "etf-ma":
+        strategy = ETFMAStrategyClass
+    if args.strategy == "etf-ama":
+        strategy = ETFAMAStrategyClass
     
     main(StrategyClass=strategy)
