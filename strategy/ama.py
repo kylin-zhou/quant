@@ -31,7 +31,7 @@ class AMAStrategyClass(BaseStrategyClass):
 
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=8)
 
-        self.ama = bt.talib.KAMA(self.close, timeperiod=40, subplot=False)
+        self.ama = bt.talib.KAMA(self.close, timeperiod=10, subplot=False)
         
         period = 20
         self.ama_std = bt.talib.STDDEV(self.ama, timeperiod=period, nbdev=1.0)
@@ -55,22 +55,6 @@ class AMAStrategyClass(BaseStrategyClass):
         
         self.buySig = False
         self.shortSig = False
-        self.buy_stop_loss = False
-        self.short_stop_loss = False
-
-        # 计算交易信号
-        # 多单止损信号
-        if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
-            self.buy_stop_loss = True
-        elif (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
-            self.buy_stop_loss = True
-        # 空单止损信号
-        if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
-            self.short_stop_loss = True
-        elif (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
-            self.short_stop_loss = True
-
-        # 交易
 
         # 如果当前持有多单
         if self.position.size > 0 :
@@ -79,12 +63,22 @@ class AMAStrategyClass(BaseStrategyClass):
             )
             # self.order = self.sell(size=abs(self.position.size))
             # 多单止损
-            if self.buy_stop_loss or self.shortSig:
+            if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
                 self.log("多单止损")
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
-                
+            # 多单止盈
+            elif (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
+                self.log("多单止盈")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+            elif self.shortSig:
+                self.log("多单止盈")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
         # 如果当前持有空单
         elif self.position.size < 0 :  
             self.log("last_price {} close {} max_cash {} atr {}"
@@ -92,11 +86,23 @@ class AMAStrategyClass(BaseStrategyClass):
             )
             # self.order = self.buy(size=abs(self.position.size))
             # 空单止损：当价格上涨至ATR时止损平仓
-            if self.short_stop_loss or self.buySig:
+            if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
                 self.log("空单止损")
                 self.order = self.buy(size=abs(self.position.size))
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
+            # 空单止盈：当价格突破20日最高点时止盈平仓
+            elif (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
+                self.log("空单止盈")
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+            elif self.buySig:
+                self.log("空单止盈")
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+
         # 如果没有持仓，等待入场时机
         else:
             # Simply log the closing price of the series from the reference
