@@ -13,13 +13,17 @@ from datetime import datetime
 import os, sys
 import argparse
 
-from strategy import MACDStrategyClass,MAStrategyClass
+from strategy import (
+    MACDStrategyClass,
+    MAStrategyClass,
+    AMAStrategyClass
+)
  
-def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2023-09-27'):
+def get_data(trader_code, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     # history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
-    history_df = ak.futures_zh_minute_sina(symbol="MA2301", period="5").iloc[:, :6]
+    history_df = ak.futures_zh_minute_sina(symbol=trader_code, period="5").iloc[:, :6]
     # 处理字段命名，以符合 Backtrader 的要求
     history_df.columns = [
         'date',
@@ -41,7 +45,7 @@ def get_data(trader_code="AU0", start_date='2022-01-01', end_date='2023-09-27'):
 
 def main(StrategyClass):
     cerebro = bt.Cerebro()
-    cerebro.adddata(get_data(trader_code="A0"), name='MA')
+    cerebro.adddata(get_data(trader_code="RM2301"), name='')
 
     # 初始资金 100,000
     start_cash = 100000
@@ -101,5 +105,7 @@ if __name__ == "__main__":
         strategy = MACDStrategyClass
     if args.strategy == "ma":
         strategy = MAStrategyClass
+    if args.strategy == "ama":
+        strategy = AMAStrategyClass
     
     main(StrategyClass=strategy)

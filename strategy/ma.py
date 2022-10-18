@@ -31,9 +31,9 @@ class MAStrategyClass(BaseStrategyClass):
 
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=8)
 
-        self.ma1 = bt.talib.SMA(self.close, timeperiod=5, subplot=False)
-        self.ma2 = bt.talib.SMA(self.close, timeperiod=10, subplot=False)
-        self.ma3 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
+        self.ma1 = bt.talib.SMA(self.close, timeperiod=10, subplot=False)
+        self.ma2 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
+        self.ma3 = bt.talib.SMA(self.close, timeperiod=30, subplot=False)
         self.ma4 = bt.talib.SMA(self.close, timeperiod=40, subplot=False)
         period = 20
         self.ma3_std = bt.talib.STDDEV(self.ma3, timeperiod=period, nbdev=1.0)
@@ -56,6 +56,9 @@ class MAStrategyClass(BaseStrategyClass):
  
         self.last_price = self.position.price
         self.max_cash = max(self.broker.getvalue(), self.max_cash)
+        
+        self.buySig = False
+        self.shortSig = False
 
         # 如果当前持有多单
         if self.position.size > 0 :
@@ -77,6 +80,10 @@ class MAStrategyClass(BaseStrategyClass):
                 self.max_cash = self.broker.getvalue()
             elif (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
                 self.log("多单止盈")
+                self.order = self.sell(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+            elif self.shortSig:
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
@@ -105,6 +112,11 @@ class MAStrategyClass(BaseStrategyClass):
                 self.order = self.buy(size=abs(self.position.size))
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
+            elif self.buySig:
+                self.order = self.buy(size=abs(self.position.size))
+                self.buy_count = 0
+                self.max_cash = self.broker.getvalue()
+
         # 如果没有持仓，等待入场时机
         else:
             # Simply log the closing price of the series from the reference
@@ -114,18 +126,22 @@ class MAStrategyClass(BaseStrategyClass):
             # self.data.close是表示收盘价
             # 收盘价大于histo，做多
 
-            if ((self.ma1>self.ma2>self.ma3) and (self.ma3-self.ma3_min)>2*self.ma3_std
+            size = 10
+
+            if ((self.ma1>self.ma2>self.ma3) and (self.ma3-self.ma3_min)>3*self.ma3_std
                 and self.ma4 >= self.ma4[-1] and self.adx>=25):
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('BUY Price,{}'.format(self.position.price))
                 self.log("做多")
-                self.order = self.buy(self.datas[0],size=1)
+                self.buySig = True
+                self.order = self.buy(self.datas[0],size=size)
 
 
             # 收盘价小于等于histo，做空
-            if ((self.ma1<self.ma2<self.ma3) and (self.ma3_max-self.ma3)>2*self.ma3_std
+            if ((self.ma1<self.ma2<self.ma3) and (self.ma3_max-self.ma3)>3*self.ma3_std
                 and self.ma4 <= self.ma4[-1] and self.adx>=25):
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('Pos size %s' % self.position.size)
                 self.log("做空")
-                self.order = self.sell(self.datas[0],size=1)
+                self.shortSig = True
+                self.order = self.sell(self.datas[0],size=size)
