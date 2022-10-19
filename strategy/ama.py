@@ -14,11 +14,12 @@ from datetime import datetime
  
 from ._base import BaseStrategyClass
  
-""" 多均线策略
+""" AMA均线策略
 """
  
 class AMAStrategyClass(BaseStrategyClass):
     '''
+    AMA均线策略
     '''
  
     def __init__(self):
