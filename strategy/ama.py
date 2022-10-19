@@ -144,7 +144,7 @@ class ETFAMAStrategyClass(BaseStrategyClass):
 
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=8)
 
-        self.ama = bt.talib.KAMA(self.close, timeperiod=30, subplot=False)
+        self.ama = bt.talib.KAMA(self.close, timeperiod=10, subplot=False)
         
         period = 20
         self.ama_std = bt.talib.STDDEV(self.ama, timeperiod=period, nbdev=1.0)
@@ -155,9 +155,9 @@ class ETFAMAStrategyClass(BaseStrategyClass):
         self.buyprice = None
         self.buycomm = None
         self.max_cash = 0
-        self.atr_rate_low = 0.5
+        self.atr_rate_low = 0.4
         self.atr_rate_high = 1
-        self.std_rate = 3
+        self.std_rate = 2
  
     def next(self):
  
@@ -167,30 +167,24 @@ class ETFAMAStrategyClass(BaseStrategyClass):
         self.last_price = self.position.price
         
         self.buySig = False
-        self.shortSig = False
+        self.sellSig = False
 
         # 如果当前持有多单
         if self.position.size > 0 :
-            self.log("last_price {} close {} max_cash {} atr {} cash {}"
-                .format(self.last_price, self.close[0], self.max_cash, self.ATR[0], self.broker.getvalue())
-            )
             # self.order = self.sell(size=abs(self.position.size))
             # 多单止损
             if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
                 self.log("多单止损")
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
+                self.sellSig = True
                 self.max_cash = self.broker.getvalue()
             # 多单止盈
             elif (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
                 self.log("多单止盈")
                 self.order = self.sell(size=abs(self.position.size))
                 self.buy_count = 0
-                self.max_cash = self.broker.getvalue()
-            elif self.shortSig:
-                self.log("多单止盈")
-                self.order = self.sell(size=abs(self.position.size))
-                self.buy_count = 0
+                self.sellSig = True
                 self.max_cash = self.broker.getvalue()
 
         # 如果没有持仓，等待入场时机
@@ -210,3 +204,8 @@ class ETFAMAStrategyClass(BaseStrategyClass):
                 self.log("做多")
                 self.buySig = True
                 self.order = self.buy(self.datas[0],size=size)
+
+
+        self.log("last_price {} close {} atr {} buy {} sell {}"
+            .format(self.last_price, self.close[0], self.ATR[0],self.buySig, self.sellSig)
+        )
