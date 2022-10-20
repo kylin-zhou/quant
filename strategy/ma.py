@@ -34,11 +34,11 @@ class MAStrategyClass(BaseStrategyClass):
         self.ma1 = bt.talib.SMA(self.close, timeperiod=10, subplot=False)
         self.ma2 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
         self.ma3 = bt.talib.SMA(self.close, timeperiod=30, subplot=False)
-        self.ma4 = bt.talib.SMA(self.close, timeperiod=40, subplot=False)
+        self.ma4 = bt.talib.SMA(self.close, timeperiod=5, subplot=False)
         period = 20
-        self.ma3_std = bt.talib.STDDEV(self.ma3, timeperiod=period, nbdev=1.0)
-        self.ma3_min = bt.talib.MIN(self.ma3, timeperiod=period)
-        self.ma3_max = bt.talib.MAX(self.ma3, timeperiod=period)
+        self.ma2_std = bt.talib.STDDEV(self.ma2, timeperiod=period, nbdev=1.0)
+        self.ma2_min = bt.talib.MIN(self.ma2, timeperiod=period)
+        self.ma2_max = bt.talib.MAX(self.ma2, timeperiod=period)
         self.adx = bt.talib.ADX(self.high, self.low, self.close, timeperiod=10)
  
         self.order = None
@@ -47,7 +47,8 @@ class MAStrategyClass(BaseStrategyClass):
         self.max_cash = 0
         self.hard_loss = 0.1
         self.atr_rate_low = 1
-        self.atr_rate_high = 1
+        self.atr_rate_high = 2
+        self.std_rate = 3
  
     def next(self):
  
@@ -73,11 +74,6 @@ class MAStrategyClass(BaseStrategyClass):
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
             # 多单止盈
-            elif 1-self.broker.getvalue()/self.max_cash > self.hard_loss:
-                self.log("多单止盈")
-                self.order = self.sell(size=abs(self.position.size))
-                self.buy_count = 0
-                self.max_cash = self.broker.getvalue()
             elif (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
                 self.log("多单止盈")
                 self.order = self.sell(size=abs(self.position.size))
@@ -101,12 +97,6 @@ class MAStrategyClass(BaseStrategyClass):
                 self.buy_count = 0
                 self.max_cash = self.broker.getvalue()
             # 空单止盈：当价格突破20日最高点时止盈平仓
-            elif 1-self.broker.getvalue()/self.max_cash > self.hard_loss:
-                self.log("空单止盈")
-                self.order = self.buy(size=abs(self.position.size))
-                self.buy_count = 0
-                self.max_cash = self.broker.getvalue()
-
             elif (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
                 self.log("空单止盈")
                 self.order = self.buy(size=abs(self.position.size))
@@ -128,8 +118,13 @@ class MAStrategyClass(BaseStrategyClass):
 
             size = 10
 
-            if ((self.ma1>self.ma2>self.ma3) and (self.ma3-self.ma3_min)>3*self.ma3_std
-                and self.ma4 >= self.ma4[-1] and self.adx>=25):
+            if ((self.ma1>self.ma2>self.ma3)
+                and (self.ma2-self.ma2_min)>self.std_rate*self.ma2_std
+                and self.ma1 >= self.ma1[-1]
+                and self.ma2 >= self.ma2[-1]
+                and self.ma3 >= self.ma3[-1]
+                and self.ma4 >= self.ma4[-1]
+                and self.adx>=25):
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('BUY Price,{}'.format(self.position.price))
                 self.log("做多")
@@ -138,8 +133,13 @@ class MAStrategyClass(BaseStrategyClass):
 
 
             # 收盘价小于等于histo，做空
-            if ((self.ma1<self.ma2<self.ma3) and (self.ma3_max-self.ma3)>3*self.ma3_std
-                and self.ma4 <= self.ma4[-1] and self.adx>=25):
+            if ((self.ma1<self.ma2<self.ma3)
+                and (self.ma2_max-self.ma2)>self.std_rate*self.ma2_std
+                and self.ma1 <= self.ma1[-1]
+                and self.ma2 <= self.ma2[-1]
+                and self.ma3 <= self.ma3[-1]
+                and self.ma4 <= self.ma4[-1] 
+                and self.adx>=25):
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('Pos size %s' % self.position.size)
                 self.log("做空")
@@ -166,9 +166,9 @@ class ETFMAStrategyClass(BaseStrategyClass):
         self.ma3 = bt.talib.SMA(self.close, timeperiod=30, subplot=False)
         self.ma4 = bt.talib.SMA(self.close, timeperiod=40, subplot=False)
         period = 20
-        self.ma3_std = bt.talib.STDDEV(self.ma3, timeperiod=period, nbdev=1.0)
-        self.ma3_min = bt.talib.MIN(self.ma3, timeperiod=period)
-        self.ma3_max = bt.talib.MAX(self.ma3, timeperiod=period)
+        self.ma2_std = bt.talib.STDDEV(self.ma3, timeperiod=period, nbdev=1.0)
+        self.ma2_min = bt.talib.MIN(self.ma3, timeperiod=period)
+        self.ma2_max = bt.talib.MAX(self.ma3, timeperiod=period)
         self.adx = bt.talib.ADX(self.high, self.low, self.close, timeperiod=10)
  
         self.order = None
@@ -230,7 +230,7 @@ class ETFMAStrategyClass(BaseStrategyClass):
 
             size = 10
 
-            if ((self.ma1>self.ma2>self.ma3) and (self.ma3-self.ma3_min)>3*self.ma3_std
+            if ((self.ma1>self.ma2>self.ma3) and (self.ma3-self.ma2_min)>3*self.ma2_std
                 and self.ma4 >= self.ma4[-1] and self.adx>=25):
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('BUY Price,{}'.format(self.position.price))
