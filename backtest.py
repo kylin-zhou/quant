@@ -48,7 +48,7 @@ def get_data(trader_code, start_date='2022-01-01', end_date='2023-09-27'):
 
 def main(StrategyClass):
     cerebro = bt.Cerebro()
-    cerebro.adddata(get_data(trader_code="MA2301"), name='')
+    cerebro.adddata(get_data(trader_code="RM2301"), name='')
 
     # 初始资金 100,000
     start_cash = 100000
