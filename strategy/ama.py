@@ -142,9 +142,9 @@ class ETFAMAStrategyClass(BaseStrategyClass):
         self.high = self.datas[0].high
         self.low = self.datas[0].low
 
-        self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=8)
+        self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=20)
 
-        self.ama = bt.talib.KAMA(self.close, timeperiod=10, subplot=False)
+        self.ama = bt.talib.KAMA(self.close, timeperiod=100, subplot=False)
         
         period = 20
         self.ama_std = bt.talib.STDDEV(self.ama, timeperiod=period, nbdev=1.0)
@@ -155,9 +155,9 @@ class ETFAMAStrategyClass(BaseStrategyClass):
         self.buyprice = None
         self.buycomm = None
         self.max_cash = 0
-        self.atr_rate_low = 0.4
-        self.atr_rate_high = 1
-        self.std_rate = 2
+        self.atr_rate_low = 1
+        self.atr_rate_high = 2
+        self.std_rate = 1
  
     def next(self):
  
