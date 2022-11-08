@@ -1,50 +1,23 @@
-from jqdatasdk import *
-
-auth("17721228723","Happy+joinquant01")
-
-count = get_query_count()
-print(count)
-
-print(get_dominant_future("MA","2022-10-29"))
-
-for symbol in ["FG9999.XZCE", "MA9999.XZCE", "TA9999.XZCE", "UR9999.XZCE", "RM9999.XZCE", "C9999.XDCE", "V9999.XDCE","M9999.XDCE"]:
-    df = get_bars(
-        symbol,
-        12 * 250,
-        unit="30m",
-        fields=["date", "open", "high", "low", "close", "volume"],
-        include_now=False,
-        end_dt="2022-12-31",
-    )
-    print(symbol, df.shape)
-    print(df.head())
-    
-    df.to_csv(f"data/futures/dominant/{symbol}.30m.csv", index=False)
-
-""" ER/R^2
-
+import akshare as ak
 import numpy as np
 import talib
+from prettytable import PrettyTable
 
-for symbol in ["FG9999.XZCE", "MA9999.XZCE", "TA9999.XZCE", "UR9999.XZCE", "RM9999.XZCE", "C9999.XDCE", "V9999.XDCE"]:
-    df = get_bars(
-        symbol,
-        12 * 20,
-        unit="30m",
-        fields=["date", "open", "high", "low", "close"],
-        include_now=False,
-        end_dt="2022-12-31",
-    )
-    # print(df.head())
+table = PrettyTable(["symbol", "time", "ER", "close", "trend", "macdhist", "kd_cross", "macd_cross", "atr", "signal"])
 
+symbols = ["MA2301", "TA2301", "RM2301", "RB2301"]
+
+for symbol in symbols:
+    df = ak.futures_zh_minute_sina(symbol=symbol, period="30")
+    """
     ER = Direction / Volatility
 
-    # Where:
-    # Direction = ABS(Close – Close[n])
-    # Volatility = sum(ABS(Close – Close[1]))
-    # n = The efficiency ratio period.
-    
-    n = 90
+    Where:
+    Direction = ABS(Close – Close[n])
+    Volatility = sum(ABS(Close – Close[1]))
+    n = The efficiency ratio period.
+    """
+    n = 20
     close, high, low = df.close.values, df.high.values, df.low.values
 
     direction = np.abs(close[-1] - close[-n])
@@ -54,14 +27,57 @@ for symbol in ["FG9999.XZCE", "MA9999.XZCE", "TA9999.XZCE", "UR9999.XZCE", "RM99
     k = 1 if close[-1] > close[-n] else -1
 
     # y:close, y_hat:kx+b, y_mean:avg(close)
-    y_hat = np.array([(k * direction / n * i + close[-n]) for i, price in enumerate(close[-n:])])
-    sse = sum((close[-n:] - y_hat) ** 2)
-    sst = sum((close[-n:] - np.mean(close[-n:])) ** 2)
-    r2 = 1 - sse / sst
+    # y_hat = np.array([(k * direction / n * i + close[-n]) for i, price in enumerate(close[-n:])])
+    # sse = sum((close[-n:] - y_hat) ** 2)
+    # sst = sum((close[-n:] - np.mean(close[-n:])) ** 2)
+    # r2 = 1 - sse / sst
 
+    ma20 = talib.SMA(close, 20)
+    ma50 = talib.SMA(close, 50)
+    ma100 = talib.SMA(close, 100)
+    ma200 = talib.SMA(close, 200)
+    macd, macdsignal, macdhist = talib.MACD(close)
+    slowk, slowd = talib.STOCH(high, low, close)
     atr = talib.ATR(high, low, close, timeperiod=20)
 
-    print(symbol, k, er, r2 * direction, atr[-1])
+    # "symbol", "up/down", "ER", "close", "ma20","ma50","ma100","ma200","macdhist","kdj","atr", "1%"
+    # signal, trend, momentum
+    trend_dict = {"close": close[-1], "ma20": ma20[-1], "ma50": ma50[-1], "ma100": ma100[-1], "ma200": ma200[-1]}
+    trend_dict = sorted(trend_dict.items(), key=lambda x: x[1])
+    trend = " > ".join([i[0] for i in trend_dict])
+    kd_cross = ""
+    if slowk[-1] > slowd[-1] and slowk[-1] < slowd[-1]:
+        kd_cross = "Golden"
+    elif slowk[-1] < slowd[-1] and slowk[-1] > slowd[-1]:
+        kd_cross = "Death"
 
+    macd_hist = ""
+    if macdhist[-1] > macdhist[-2]:
+        macd_hist = "up"
+    elif macdhist[-1] < macdhist[-2]:
+        macd_hist = "down"
 
-"""
+    macd_cross = ""
+    if macdhist[-1] > 0 and macdhist[-2] < 0:
+        macd_cross = "Golden"
+    elif macdhist[-1] < 0 and macdhist[-2] > 0:
+        macd_cross = "Death"
+
+    signals = ["↑", "↓"]
+
+    table.add_row(
+        [
+            symbol,
+            df.datetime.values[-1],
+            k * round(er, 2),
+            close[-1],
+            trend,
+            macd_hist,
+            kd_cross,
+            macd_cross,
+            round(atr[-1], 2),
+            signals[0],
+        ]
+    )
+
+print(table)
