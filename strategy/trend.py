@@ -15,7 +15,9 @@ from ._base import BaseStrategyClass
 
 """ 趋势策略
 1. 以长期均线作为趋势滤波，只在上升趋势做多，下降趋势做空
-2. 以支撑位、阻力位突破交易
+2.  
+    2.1 以支撑位、阻力位突破交易
+    2.2 RSI指标金叉、死叉交易
 3. ATR动态止损、信号止损
 """
  
@@ -32,14 +34,17 @@ class TrendStrategyClass(BaseStrategyClass):
 
         self.ma1 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
         self.ma2 = bt.talib.SMA(self.close, timeperiod=50, subplot=False)
-        self.ma3 = bt.talib.SMA(self.close, timeperiod=200, subplot=False)
+        self.ma3 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
 
         atr_period = 20
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=atr_period)
         
-        period = 50
-        self.min = bt.talib.MIN(self.close, timeperiod=period)
-        self.max = bt.talib.MAX(self.close, timeperiod=period)
+        # period = 50
+        # self.min = bt.talib.MIN(self.close, timeperiod=period)
+        # self.max = bt.talib.MAX(self.close, timeperiod=period)
+
+        self.rsi1 = bt.talib.RSI(self.close, timeperiod=5)
+        self.rsi3 = bt.talib.RSI(self.close, timeperiod=20)
  
         self.order = None
         self.buyprice = None
@@ -47,7 +52,7 @@ class TrendStrategyClass(BaseStrategyClass):
         self.last_price = 0
         self.max_cash = 0
         self.atr_rate_low = 1
-        self.atr_rate_high = 2
+        self.atr_rate_high = 1
  
     def next(self):
  
@@ -68,14 +73,20 @@ class TrendStrategyClass(BaseStrategyClass):
         # 计算信号
         # 做多
         if (
-            self.close>self.ma2 > self.ma3 and self.ma2 > self.ma2[-1] and
-            self.close[0] > self.max[-1]
+            self.ma1 > self.ma2 > self.ma3 and
+            self.ma2 > self.ma2[-5] and
+            self.ma3 > self.ma3[-5] and
+            self.rsi1[-1] < self.rsi3[-1] and 
+            self.rsi1 > self.rsi3
         ):
             self.buySig = True
         # 做空
         if (
-            self.close<self.ma2 < self.ma3 and self.ma2 < self.ma2[-1] and
-            self.close[0] < self.min[-1]
+            self.ma1 < self.ma2 < self.ma3 and
+            self.ma2 < self.ma2[-5] and
+            self.ma3 < self.ma3[-5] and
+            self.rsi1[-1] > self.rsi3[-1] and 
+            self.rsi1 < self.rsi3
         ):
             self.shortSig = True
 
@@ -84,10 +95,10 @@ class TrendStrategyClass(BaseStrategyClass):
             self.buyStopLoss = True
         if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
             self.buyStopLoss = True
-        if self.close < self.ma2:
-            self.buyStopLoss = True
-        if self.close < self.min[-1]:
-            self.buyStopLoss = True
+        # if self.close < self.ma2:
+        #     self.buyStopLoss = True
+        # if self.close < self.min[-1]:
+        #     self.buyStopLoss = True
         if self.shortSig:
             self.buyStopLoss = True
 
@@ -96,10 +107,10 @@ class TrendStrategyClass(BaseStrategyClass):
             self.shortStopLoss = True
         if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
             self.shortStopLoss = True
-        if self.close > self.ma2:
-            self.shortStopLoss = True
-        if self.close > self.max[-1]:
-            self.shortStopLoss = True
+        # if self.close > self.ma2:
+        #     self.shortStopLoss = True
+        # if self.close > self.max[-1]:
+        #     self.shortStopLoss = True
         if self.buySig:
             self.shortStopLoss = True
         

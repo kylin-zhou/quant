@@ -55,7 +55,7 @@ class MACDStrategyClass(BaseStrategyClass):
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=atr_period)
  
         self.ma1 = bt.talib.SMA(self.close, timeperiod=50, subplot=False)
-        self.ma2 = bt.talib.SMA(self.close, timeperiod=200, subplot=False)
+        self.ma2 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
 
         self.order = None
         self.buyprice = None

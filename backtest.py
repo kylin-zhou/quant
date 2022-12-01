@@ -102,7 +102,7 @@ if __name__ == "__main__":
         "-s",
         "--strategy",
         help="strategy name",
-        default="ma",
+        default="trend",
     )
     args = parser.parse_args()
 
