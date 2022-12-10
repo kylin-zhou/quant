@@ -52,7 +52,7 @@ class TrendStrategyClass(BaseStrategyClass):
         self.last_price = 0
         self.max_cash = 0
         self.atr_rate_low = 1
-        self.atr_rate_high = 1
+        self.atr_rate_high = 2
  
     def next(self):
  

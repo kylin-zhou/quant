@@ -9,7 +9,7 @@ table = PrettyTable(["symbol", "time", "ER","trend","atr"])
 # boli, caipo, luowen, pvc, chuanjian, niaosu, doupo, yumi
 symbols = {
     "future": [
-        "MA2301", "v2301", "RB2301", "RM2301", "c2301", "m2301","fg2301", "l2301"
+        "MA2305", "v2305", "RB2305", "RM2305"
         ],
     # "etf": [
     # "sh513050", "sh515790", "sh510300", "sh512170", "sh512690",

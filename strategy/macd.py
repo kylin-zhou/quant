@@ -14,23 +14,18 @@ from datetime import datetime
  
 from ._base import BaseStrategyClass
  
-""" MACD 经典策略
-macd_dif > macd_ema, 金叉买入, 做多
-macd_dif < macd_emd, 死叉卖出, 做空
-TR止损
+""" ma+MACD+kdj
+close > ma100, macd 金叉做多
+macd > 0, kdj 金叉做多
+
+close < ma100, macd 死叉做空
+macd < 0, kdj 死叉做空
+
+止损：ATR止损、macd叉止损、多空止损
 """
  
 class MACDStrategyClass(BaseStrategyClass):
     '''#平滑异同移动平均线MACD
-        DIF(蓝线): 计算12天平均和26天平均的差，公式：EMA(C,12)-EMA(c,26)
-       Signal(DEM或DEA或MACD) (红线): 计算macd9天均值，公式：Signal(DEM或DEA或MACD)：EMA(MACD,9)
-        Histogram (柱): 计算macd与signal的差值，公式：Histogram：MACD-Signal
-        period_me1=12
-        period_me2=26
-        period_signal=9
-        macd = ema(data, me1_period) - ema(data, me2_period)
-        signal = ema(macd, signal_period)
-        histo = macd - signal
     '''
  
     def __init__(self):
@@ -43,27 +38,27 @@ class MACDStrategyClass(BaseStrategyClass):
 
         macd = bt.ind.MACD(self.close,
             period_me1=20,
-            period_me2=40,
-            period_signal=14
+            period_me2=50,
+            period_signal=15
         )
-        self.histo = bt.ind.MACDHisto()
-        # macd, macdsignal, self.histo = bt.talib.MACD(
-        #     self.close, fastperiod=12, slowperiod=26, signalperiod=9
-        # )
+        self.diff = macd.macd
+        self.dea = macd.signal
+ 
+        self.ma100 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
+
+        self.rsi1 = bt.talib.RSI(self.close, timeperiod=6)
+        self.rsi2 = bt.talib.RSI(self.close, timeperiod=24)
 
         atr_period = 20
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=atr_period)
- 
-        self.ma1 = bt.talib.SMA(self.close, timeperiod=50, subplot=False)
-        self.ma2 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
 
         self.order = None
         self.buyprice = None
         self.buycomm = None
         self.last_price = 0
         self.max_cash = 0
-        self.atr_rate_low = 2
-        self.atr_rate_high = 2
+        self.atr_rate_low = 1
+        self.atr_rate_high = 3
  
     def next(self):
  
@@ -82,17 +77,19 @@ class MACDStrategyClass(BaseStrategyClass):
         self.shortStopLoss = False
 
         # 计算信号
-        # 做多
-        if (
-            self.histo>0 and self.ma1 > self.ma2 and
-            (self.ma1 - self.ma1[-1])>0 and (self.ma2 - self.ma2[-1])>0
-        ):
+        # macd金叉做多
+        if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
+            self.close > self.ma100):
             self.buySig = True
-        # 做空
-        if (
-            self.histo<0 and self.ma1 < self.ma2 and
-            (self.ma1 - self.ma1[-1])<0 and (self.ma2 - self.ma2[-1])<0
-        ):
+        if (self.diff>self.dea and (self.diff[-1]-self.dea[-1])<(self.diff-self.dea) and
+            self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2):
+            self.buySig = True
+        # macd死叉做空
+        if (self.diff[-1]>self.dea[-1] and self.diff<self.dea and
+            self.close < self.ma100):
+            self.shortSig = True
+        if (self.diff<self.dea and (self.diff[-1]-self.dea[-1])>(self.diff-self.dea) and
+            self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2):
             self.shortSig = True
 
         # 多单止损
@@ -100,7 +97,7 @@ class MACDStrategyClass(BaseStrategyClass):
             self.buyStopLoss = True
         if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
             self.buyStopLoss = True
-        if self.histo<0:
+        if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
             self.buyStopLoss = True
         if self.shortSig:
             self.buyStopLoss = True
@@ -110,7 +107,7 @@ class MACDStrategyClass(BaseStrategyClass):
             self.shortStopLoss = True
         if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
             self.shortStopLoss = True
-        if self.histo>0:
+        if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
             self.shortStopLoss = True
         if self.buySig:
             self.shortStopLoss = True
@@ -135,9 +132,7 @@ class MACDStrategyClass(BaseStrategyClass):
         # 如果没有持仓，等待入场时机
         else:
             # Check if we are in the market
-            # self.data.close是表示收盘价
-
-            size = 1
+            size = 3
             if self.buySig:
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('BUY Price,{}'.format(self.position.price))
