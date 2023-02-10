@@ -77,26 +77,27 @@ class MACDStrategyClass(BaseStrategyClass):
         self.shortStopLoss = False
 
         # 计算信号
-        # macd金叉做多
-        if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
-            self.close > self.ma100):
-            self.buySig = True
-        if (self.diff>self.dea and (self.diff[-1]-self.dea[-1])<(self.diff-self.dea) and
-            self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2):
-            self.buySig = True
-        # macd死叉做空
-        if (self.diff[-1]>self.dea[-1] and self.diff<self.dea and
-            self.close < self.ma100):
-            self.shortSig = True
-        if (self.diff<self.dea and (self.diff[-1]-self.dea[-1])>(self.diff-self.dea) and
-            self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2):
-            self.shortSig = True
+        if abs(self.ma100 -self.ma100[-50]) > 0.5*self.ATR[0]:
+            # macd金叉做多
+            if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
+                self.close > self.ma100):
+                self.buySig = True
+            if (self.diff>self.dea and (self.diff[-1]-self.dea[-1])<(self.diff-self.dea) and
+                self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2):
+                self.buySig = True
+            # macd死叉做空
+            if (self.diff[-1]>self.dea[-1] and self.diff<self.dea and
+                self.close < self.ma100):
+                self.shortSig = True
+            if (self.diff<self.dea and (self.diff[-1]-self.dea[-1])>(self.diff-self.dea) and
+                self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2):
+                self.shortSig = True
 
         # 多单止损
         if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
             self.buyStopLoss = True
-        if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
-            self.buyStopLoss = True
+        # if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
+        #     self.buyStopLoss = True
         if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
             self.buyStopLoss = True
         if self.shortSig:
@@ -105,8 +106,8 @@ class MACDStrategyClass(BaseStrategyClass):
         # 空单止损
         if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
             self.shortStopLoss = True
-        if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
-            self.shortStopLoss = True
+        # if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
+        #     self.shortStopLoss = True
         if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
             self.shortStopLoss = True
         if self.buySig:
