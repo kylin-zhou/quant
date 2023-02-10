@@ -71,6 +71,114 @@ def calculate_indicator(df):
     )
 
 
+def calculate_long_short(df):
+    # 计算 MACD 指标
+    df["macd"], df["macd_signal"], df["macd_hist"] = talib.MACD(
+        df["close"].values, fastperiod=20, slowperiod=50, signalperiod=15
+    )
+
+    # 计算 KDJ 指标
+    df["kdj_k"], df["kdj_d"] = talib.STOCH(
+        df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
+    )
+
+    # 创建long和short列，初始值为false
+    df["long"] = False
+    df["short"] = False
+    for i in range(1, len(df)):
+        # 如果在0轴上方macd金叉或macdhist大于0且kdj金叉，将long对应的行变为true
+        if (
+            df.loc[i, "macd_hist"] > 0
+            and df.loc[i - 1, "macd_hist"] < 0
+            and df.loc[i, "kdj_k"] > df.loc[i, "kdj_d"]
+            and df.loc[i - 1, "kdj_k"] < df.loc[i - 1, "kdj_d"]
+        ):
+            df.loc[i, "long"] = True
+        elif df.loc[i, "macd"] > 0 and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
+            df.loc[i, "long"] = True
+        # 如果在0轴下方macd死叉或macdhist小于0且kdj死叉，将short对应的行变为ture
+        elif (
+            df.loc[i, "macd_hist"] < 0
+            and df.loc[i - 1, "macd_hist"] > 0
+            and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
+            and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
+        ):
+            df.loc[i, "short"] = True
+        elif df.loc[i, "macd"] < 0 and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
+            df.loc[i, "short"] = True
+
+    return df
+
+
+def analyze_win_rate(df):
+    win_rate = {}
+    for days in [5, 10, 20, 30]:
+        long_win_count, short_win_count = 0, 0
+        long_total_count, short_total_count = 0, 0
+        long_up_changes, long_down_changes = [0], [0]
+        short_up_changes, short_down_changes = [0], [0]
+        for i in range(len(df) - days):
+            if df.loc[i, "long"]:
+                long_total_count += 1
+                if df.loc[i + days, "close"] > df.loc[i, "close"]:
+                    long_win_count += 1
+
+                change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
+                if change > 0:
+                    long_up_changes.append(change)
+                else:
+                    long_down_changes.append(change)
+
+            elif df.loc[i, "short"]:
+                short_total_count += 1
+                if df.loc[i + days, "close"] < df.loc[i, "close"]:
+                    short_win_count += 1
+
+                change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
+                if change > 0:
+                    short_up_changes.append(change)
+                else:
+                    short_down_changes.append(change)
+
+        rate = (long_win_count + short_win_count) / (long_total_count + short_total_count)
+        win_rate[days] = rate
+
+        print(
+            "The {} win rate is: {:.2f}% long win rate: {:.2f} short win rate:{:.2f}".format(
+                days, rate * 100, long_win_count / long_total_count, short_win_count / short_total_count
+            )
+        )
+
+        print(
+            "long avg up:{:.4f} long avg down:{:.4f} short avg up:{:.4f} short avg down:{:.4f}".format(
+                sum(long_up_changes) / len(long_up_changes),
+                sum(long_down_changes) / len(long_down_changes),
+                sum(short_up_changes) / len(short_up_changes),
+                sum(short_down_changes) / len(short_down_changes),
+            )
+        )
+
+    return win_rate
+
+
+def backtest(df):
+    """get buy/sell signal 5/10/20/50 Win/Loss Ratio
+
+    long:
+        1. macd_hist > 0, kdj gold
+        2. macd_dif > 0, macd gold
+
+    short:
+        1. macd_hist < 0, kdj dead
+        2. macd_dif < 0, macd dead
+    """
+
+    # 新增 long 和 short 列
+    df = calculate_long_short(df)
+
+    # 计算 long 变为 True 时的价格变化
+    win_rate = analyze_win_rate(df)
+
 if __name__ == "__main__":
     for market in symbols.keys():
         for symbol in symbols[market]:
