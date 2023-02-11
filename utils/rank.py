@@ -2,18 +2,18 @@ import sys
 import akshare as ak
 import numpy as np
 import talib
-from prettytable import PrettyTable
+# from prettytable import PrettyTable
 
-table = PrettyTable(["symbol", "time", "ER","trend","atr"])
+# table = PrettyTable(["symbol", "time", "ER","trend","atr"])
 
-# boli, caipo, luowen, pvc, chuanjian, niaosu, doupo, yumi
+# 
 symbols = {
     "future": [
-        "MA2305", "v2305", "RB2305", "RM2305"
+        "MA2305", "v2305", "RB2305", "c2305"
         ],
-    # "etf": [
-    # "sh513050", "sh515790", "sh510300", "sh512170", "sh512690",
-    # "sh513100", "sh588000", "sh510500"],
+    "etf": [
+    "sh513050", "sh515790", "sh512170", "sh512690",
+    "sh510300", "sh588000", "sh510500","sz159915"],
 }
 
 def get_er(close, n):
@@ -81,6 +81,7 @@ def calculate_long_short(df):
     df["kdj_k"], df["kdj_d"] = talib.STOCH(
         df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
     )
+    df["ma"] = talib.SMA(df["close"].values, 20)
 
     # 创建long和short列，初始值为false
     df["long"] = False
@@ -126,8 +127,6 @@ def analyze_win_rate(df):
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
                 if change > 0:
                     long_up_changes.append(change)
-                else:
-                    long_down_changes.append(change)
 
             elif df.loc[i, "short"]:
                 short_total_count += 1
@@ -135,9 +134,7 @@ def analyze_win_rate(df):
                     short_win_count += 1
 
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
-                if change > 0:
-                    short_up_changes.append(change)
-                else:
+                if change < 0:
                     short_down_changes.append(change)
 
         rate = (long_win_count + short_win_count) / (long_total_count + short_total_count)
@@ -150,11 +147,9 @@ def analyze_win_rate(df):
         )
 
         print(
-            "long avg up:{:.4f} long avg down:{:.4f} short avg up:{:.4f} short avg down:{:.4f}".format(
-                sum(long_up_changes) / len(long_up_changes),
-                sum(long_down_changes) / len(long_down_changes),
-                sum(short_up_changes) / len(short_up_changes),
-                sum(short_down_changes) / len(short_down_changes),
+            "long avg up:{:.4f} , short avg down:{:.4f}".format(
+                np.mean(long_up_changes),
+                np.mean(short_down_changes)
             )
         )
 
@@ -182,12 +177,15 @@ def backtest(df):
 if __name__ == "__main__":
     for market in symbols.keys():
         for symbol in symbols[market]:
+            print(symbol)
             if market == "future":
                 df = ak.futures_zh_minute_sina(symbol=symbol, period="30").iloc[:, :6]
             else:
                 df = ak.fund_etf_hist_sina(symbol=symbol).iloc[:, :6]
             df.columns = ["datetime", "open", "high", "low", "close", "volume"]
-            calculate_indicator(df)
 
-    print(table)
+            # calculate_indicator(df)
+            backtest(df)
+
+    # print(table)
 

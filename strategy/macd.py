@@ -27,6 +27,9 @@ macd < 0, kdj 死叉做空
 class MACDStrategyClass(BaseStrategyClass):
     '''#平滑异同移动平均线MACD
     '''
+
+    stop_loss = 0.01
+    stop_win = 0.02
  
     def __init__(self):
         # sma源码位于indicators\macd.py
@@ -44,6 +47,7 @@ class MACDStrategyClass(BaseStrategyClass):
         self.diff = macd.macd
         self.dea = macd.signal
  
+        self.ma20 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
         self.ma100 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
 
         self.rsi1 = bt.talib.RSI(self.close, timeperiod=6)
@@ -58,7 +62,7 @@ class MACDStrategyClass(BaseStrategyClass):
         self.last_price = 0
         self.max_cash = 0
         self.atr_rate_low = 1
-        self.atr_rate_high = 3
+        self.atr_rate_high = 2
  
     def next(self):
  
@@ -80,38 +84,54 @@ class MACDStrategyClass(BaseStrategyClass):
         if abs(self.ma100 -self.ma100[-50]) > 0.5*self.ATR[0]:
             # macd金叉做多
             if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
-                self.close > self.ma100):
+                self.close > self.ma100
+            ):
                 self.buySig = True
-            if (self.diff>self.dea and (self.diff[-1]-self.dea[-1])<(self.diff-self.dea) and
-                self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2):
+            if (self.diff>self.dea
+                and self.close > self.ma20
+                and self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2
+            ):
                 self.buySig = True
             # macd死叉做空
             if (self.diff[-1]>self.dea[-1] and self.diff<self.dea and
-                self.close < self.ma100):
+                self.close < self.ma100
+            ):
                 self.shortSig = True
-            if (self.diff<self.dea and (self.diff[-1]-self.dea[-1])>(self.diff-self.dea) and
-                self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2):
+            if (self.diff<self.dea
+                and self.close < self.ma20
+                and self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2
+            ):
                 self.shortSig = True
 
-        # 多单止损
-        if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
-            self.buyStopLoss = True
-        # if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
-        #     self.buyStopLoss = True
-        if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
-            self.buyStopLoss = True
-        if self.shortSig:
-            self.buyStopLoss = True
+        if self.last_price != 0:
+            # 多单止损
+            # if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
+            #     self.buyStopLoss = True
+            # if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
+            #     self.buyStopLoss = True
+            # if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
+            #     self.buyStopLoss = True
+            # if self.shortSig:
+            #     self.buyStopLoss = True
+            if (self.close[0]/self.last_price) < (1-self.stop_loss):
+                self.buyStopLoss = True
+            if self.close[0]/self.last_price > (1+self.stop_win): # 止盈
+                self.buyStopLoss = True
 
-        # 空单止损
-        if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
-            self.shortStopLoss = True
-        # if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
-        #     self.shortStopLoss = True
-        if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
-            self.shortStopLoss = True
-        if self.buySig:
-            self.shortStopLoss = True
+
+            # 空单止损
+            # if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
+            #     self.shortStopLoss = True
+            # if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
+            #     self.shortStopLoss = True
+            # if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
+            #     self.shortStopLoss = True
+            # if self.buySig:
+            #     self.shortStopLoss = True
+            if (self.close[0]/self.last_price) < (1-self.stop_win): # 止盈, 价格变化2%
+                self.shortStopLoss = True
+            if self.close[0]/self.last_price > (1+self.stop_loss):
+                self.shortStopLoss = True
         
 
         # 如果当前持有多单
