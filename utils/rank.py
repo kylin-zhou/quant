@@ -71,6 +71,7 @@ def calculate_indicator(df):
     )
 
 
+
 def calculate_long_short(df):
     # 计算 MACD 指标
     df["macd"], df["macd_signal"], df["macd_hist"] = talib.MACD(
@@ -81,32 +82,34 @@ def calculate_long_short(df):
     df["kdj_k"], df["kdj_d"] = talib.STOCH(
         df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
     )
-    df["ma"] = talib.SMA(df["close"].values, 20)
+    # 均线指标
+    df["ma1"] = talib.SMA(df["close"].values, 20)
+    df["ma2"] = talib.SMA(df["close"].values, 120)
 
     # 创建long和short列，初始值为false
-    df["long"] = False
-    df["short"] = False
+    df["signal"] = "--"
+    position = False
     for i in range(1, len(df)):
         # 如果在0轴上方macd金叉或macdhist大于0且kdj金叉，将long对应的行变为true
         if (
             df.loc[i, "macd_hist"] > 0
-            and df.loc[i - 1, "macd_hist"] < 0
             and df.loc[i, "kdj_k"] > df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] < df.loc[i - 1, "kdj_d"]
+            # and df.loc[i, "close"] > df.loc[i, "ma1"]
         ):
-            df.loc[i, "long"] = True
-        elif df.loc[i, "macd"] > 0 and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
-            df.loc[i, "long"] = True
+            df.loc[i, "signal"] = "long"
+        elif df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
+            df.loc[i, "signal"] = "long"
         # 如果在0轴下方macd死叉或macdhist小于0且kdj死叉，将short对应的行变为ture
         elif (
             df.loc[i, "macd_hist"] < 0
-            and df.loc[i - 1, "macd_hist"] > 0
             and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
+            # and df.loc[i, "close"] < df.loc[i, "ma1"]
         ):
-            df.loc[i, "short"] = True
-        elif df.loc[i, "macd"] < 0 and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
-            df.loc[i, "short"] = True
+            df.loc[i, "signal"] = "short"
+        elif df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
+            df.loc[i, "signal"] = "short"
 
     return df
 
@@ -119,7 +122,7 @@ def analyze_win_rate(df):
         long_up_changes, long_down_changes = [0], [0]
         short_up_changes, short_down_changes = [0], [0]
         for i in range(len(df) - days):
-            if df.loc[i, "long"]:
+            if df.loc[i, "signal"] == "long":
                 long_total_count += 1
                 if df.loc[i + days, "close"] > df.loc[i, "close"]:
                     long_win_count += 1
@@ -127,14 +130,18 @@ def analyze_win_rate(df):
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
                 if change > 0:
                     long_up_changes.append(change)
+                else:
+                    long_down_changes.append(change)
 
-            elif df.loc[i, "short"]:
+            elif df.loc[i, "signal"] == "short":
                 short_total_count += 1
                 if df.loc[i + days, "close"] < df.loc[i, "close"]:
                     short_win_count += 1
 
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
-                if change < 0:
+                if change > 0:
+                    short_up_changes.append(change)
+                else:
                     short_down_changes.append(change)
 
         rate = (long_win_count + short_win_count) / (long_total_count + short_total_count)
@@ -147,9 +154,11 @@ def analyze_win_rate(df):
         )
 
         print(
-            "long avg up:{:.4f} , short avg down:{:.4f}".format(
-                np.mean(long_up_changes),
-                np.mean(short_down_changes)
+            "long avg up:{:.4f} long avg down:{:.4f} short avg up:{:.4f} short avg down:{:.4f}".format(
+                sum(long_up_changes) / len(long_up_changes),
+                sum(long_down_changes) / len(long_down_changes),
+                sum(short_up_changes) / len(short_up_changes),
+                sum(short_down_changes) / len(short_down_changes),
             )
         )
 
@@ -174,18 +183,22 @@ def backtest(df):
     # 计算 long 变为 True 时的价格变化
     win_rate = analyze_win_rate(df)
 
+
 if __name__ == "__main__":
     for market in symbols.keys():
         for symbol in symbols[market]:
             print(symbol)
             if market == "future":
                 df = ak.futures_zh_minute_sina(symbol=symbol, period="30").iloc[:, :6]
+                # iloc[600:, :6].reset_index(drop=True)
             else:
                 df = ak.fund_etf_hist_sina(symbol=symbol).iloc[:, :6]
             df.columns = ["datetime", "open", "high", "low", "close", "volume"]
 
-            # calculate_indicator(df)
+            # print(df.head(1), "\n", df.tail(1))
             backtest(df)
+
+            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"{symbol}.csv", index=False)
 
     # print(table)
 
