@@ -28,8 +28,8 @@ class MACDStrategyClass(BaseStrategyClass):
     '''#平滑异同移动平均线MACD
     '''
 
-    stop_loss = 0.01
-    stop_win = 0.02
+    stop_loss = 0.005
+    stop_win = 0.010
  
     def __init__(self):
         # sma源码位于indicators\macd.py
@@ -105,33 +105,37 @@ class MACDStrategyClass(BaseStrategyClass):
 
         if self.last_price != 0:
             # 多单止损
-            # if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
-            #     self.buyStopLoss = True
-            # if (self.close[0] - self.close[-1]) < -self.atr_rate_high*self.ATR[0]:
-            #     self.buyStopLoss = True
+            if (self.close[0] - self.last_price) < -self.atr_rate_low*self.ATR[0]:
+                self.buyStopLoss = True
+            if (self.close[0] - self.last_price) > self.atr_rate_high*self.ATR[0]:
+                self.buyStopLoss = True
             # if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
             #     self.buyStopLoss = True
             # if self.shortSig:
             #     self.buyStopLoss = True
-            if (self.close[0]/self.last_price) < (1-self.stop_loss):
-                self.buyStopLoss = True
-            if self.close[0]/self.last_price > (1+self.stop_win): # 止盈
-                self.buyStopLoss = True
+            # if (self.diff[-1]>self.dea[-1] and self.diff<self.dea):
+            #     self.buyStopLoss = True
+            # if (self.close[0]/self.last_price) < (1-self.stop_loss):
+            #     self.buyStopLoss = True
+            # if self.close[0]/self.last_price > (1+self.stop_win): # 止盈
+            #     self.buyStopLoss = True
 
 
             # 空单止损
-            # if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
-            #     self.shortStopLoss = True
-            # if (self.close[0] - self.close[-1]) > self.atr_rate_high*self.ATR[0]:
-            #     self.shortStopLoss = True
+            if (self.close[0] - self.last_price) > self.atr_rate_low*self.ATR[0]:
+                self.shortStopLoss = True
+            if (self.close[0] - self.last_price) < -self.atr_rate_high*self.ATR[0]:
+                self.shortStopLoss = True
             # if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
             #     self.shortStopLoss = True
             # if self.buySig:
             #     self.shortStopLoss = True
-            if (self.close[0]/self.last_price) < (1-self.stop_win): # 止盈, 价格变化2%
-                self.shortStopLoss = True
-            if self.close[0]/self.last_price > (1+self.stop_loss):
-                self.shortStopLoss = True
+            # if (self.diff[-1]<self.dea[-1] and self.diff>self.dea):
+            #     self.shortStopLoss = True
+            # if (self.close[0]/self.last_price) < (1-self.stop_win): # 止盈, 价格变化比
+            #     self.shortStopLoss = True
+            # if self.close[0]/self.last_price > (1+self.stop_loss):
+            #     self.shortStopLoss = True
         
 
         # 如果当前持有多单
@@ -153,7 +157,7 @@ class MACDStrategyClass(BaseStrategyClass):
         # 如果没有持仓，等待入场时机
         else:
             # Check if we are in the market
-            size = 3
+            size = 1
             if self.buySig:
                 self.log('BUY CREATE,{}'.format(self.close[0]))
                 self.log('BUY Price,{}'.format(self.position.price))
