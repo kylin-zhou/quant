@@ -2,6 +2,7 @@ import sys
 import akshare as ak
 import numpy as np
 import talib
+import matplotlib.pyplot as plt
 # from prettytable import PrettyTable
 
 # table = PrettyTable(["symbol", "time", "ER","trend","atr"])
@@ -73,7 +74,7 @@ def calculate_long_short(df):
         df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
     )
     # 均线指标
-    df["ma1"] = talib.SMA(df["close"].values, 20)
+    df["ma1"] = talib.SMA(df["close"].values, 50)
     df["ma2"] = talib.SMA(df["close"].values, 120)
 
     # 创建long和short列，初始值为false
@@ -165,14 +166,15 @@ def plot_signal(df, name=""):
             states_sell.append(i)
 
     close = df["close"]
-    fig = plt.figure(figsize=(30, 10))
+    fig = plt.figure(dpi=400,figsize=(30, 10))
     plt.plot(close, color="r", lw=2.0)
+    plt.plot(df["ma1"], color="y", lw=2.0)
     plt.plot(df["ma2"], color="b", lw=2.0)
     plt.plot(close, "^", markersize=10, color="m", label="buying signal", markevery=states_buy)
     plt.plot(close, "v", markersize=10, color="k", label="selling signal", markevery=states_sell)
     plt.title(f"{name} buy/sell signal")
     plt.legend()
-    plt.savefig(f"{name}.png")
+    plt.savefig(f"tmp/{name}.png")
 
 def backtest(df):
     """get buy/sell signal 5/10/20/50 Win/Loss Ratio
@@ -192,16 +194,15 @@ def backtest(df):
     # 计算 long 变为 True 时的价格变化
     win_rate = analyze_win_rate(df)
 
-
 if __name__ == "__main__":
     
     symbols = {
         "future": [
             "MA2305", "v2305", "RB2305", "c2305"
             ],
-        "etf": [
-        "sh513050", "sh515790", "sh512170", "sh512690",
-        "sh510300", "sh588000", "sh510500","sz159915"],
+        # "etf": [
+        # "sh513050", "sh515790", "sh512170", "sh512690",
+        # "sh510300", "sh588000", "sh510500","sz159915"],
     }
     
     for market in symbols.keys():
@@ -217,7 +218,9 @@ if __name__ == "__main__":
             # print(df.head(1), "\n", df.tail(1))
             backtest(df)
 
-            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"{symbol}.csv", index=False)
+            plot_signal(df, name=symbol)
+
+            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
 
     # print(table)
 
