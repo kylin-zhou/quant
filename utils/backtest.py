@@ -6,16 +6,6 @@ import talib
 
 # table = PrettyTable(["symbol", "time", "ER","trend","atr"])
 
-# 
-symbols = {
-    "future": [
-        "MA2305", "v2305", "RB2305", "c2305"
-        ],
-    "etf": [
-    "sh513050", "sh515790", "sh512170", "sh512690",
-    "sh510300", "sh588000", "sh510500","sz159915"],
-}
-
 def get_er(close, n):
     """
     ER = Direction / Volatility
@@ -165,6 +155,25 @@ def analyze_win_rate(df):
     return win_rate
 
 
+
+def plot_signal(df, name=""):
+    states_buy, states_sell = [], []
+    for i in range(len(df)):
+        if df.loc[i, "signal"] == "long":
+            states_buy.append(i)
+        elif df.loc[i, "signal"] == "short":
+            states_sell.append(i)
+
+    close = df["close"]
+    fig = plt.figure(figsize=(30, 10))
+    plt.plot(close, color="r", lw=2.0)
+    plt.plot(df["ma2"], color="b", lw=2.0)
+    plt.plot(close, "^", markersize=10, color="m", label="buying signal", markevery=states_buy)
+    plt.plot(close, "v", markersize=10, color="k", label="selling signal", markevery=states_sell)
+    plt.title(f"{name} buy/sell signal")
+    plt.legend()
+    plt.savefig(f"{name}.png")
+
 def backtest(df):
     """get buy/sell signal 5/10/20/50 Win/Loss Ratio
 
@@ -185,6 +194,16 @@ def backtest(df):
 
 
 if __name__ == "__main__":
+    
+    symbols = {
+        "future": [
+            "MA2305", "v2305", "RB2305", "c2305"
+            ],
+        "etf": [
+        "sh513050", "sh515790", "sh512170", "sh512690",
+        "sh510300", "sh588000", "sh510500","sz159915"],
+    }
+    
     for market in symbols.keys():
         for symbol in symbols[market]:
             print(symbol)
