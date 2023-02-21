@@ -166,7 +166,7 @@ def plot_signal(df, name=""):
             states_sell.append(i)
 
     close = df["close"]
-    fig = plt.figure(dpi=400,figsize=(30, 10))
+    fig = plt.figure(dpi=300,figsize=(30, 10))
     plt.plot(close, color="r", lw=2.0)
     plt.plot(df["ma1"], color="y", lw=2.0)
     plt.plot(df["ma2"], color="b", lw=2.0)
