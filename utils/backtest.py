@@ -61,7 +61,35 @@ def calculate_indicator(df):
         ]
     )
 
+def kdj(df, n=9, m1=3, m2=3):
+    """
+    计算 KDJ 指标
+    """
+    # 计算最低价的 N 日移动最小值
+    low_list = df["low"].rolling(window=n, min_periods=1).min()
+    # 计算最高价的 N 日移动最大值
+    high_list = df["high"].rolling(window=n, min_periods=1).max()
+    # 计算当日的 RSV 值
+    rsv = (df["close"] - low_list) / (high_list - low_list) * 100
 
+    # 计算 K 值
+    k = np.zeros_like(rsv)
+    k[0] = 50  # 初始值为 50
+    for i in range(1, len(rsv)):
+        k[i] = (2 * k[i - 1] + rsv[i]) / 3
+    # 计算 D 值
+    d = np.zeros_like(rsv)
+    d[0] = 50  # 初始值为 50
+    for i in range(1, len(rsv)):
+        d[i] = (2 * d[i - 1] + k[i]) / 3
+
+    # 计算 J 值
+    j = 3 * k - 2 * d
+    # 将 K 值、D 值和 J 值存入 DataFrame 中
+    df["kdj_k"] = k
+    df["kdj_d"] = d
+    df["kdj_j"] = j
+    return df
 
 def calculate_long_short(df):
     # 计算 MACD 指标
@@ -70,9 +98,11 @@ def calculate_long_short(df):
     )
 
     # 计算 KDJ 指标
-    df["kdj_k"], df["kdj_d"] = talib.STOCH(
-        df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
-    )
+    kdj(df)
+#     df["kdj_k"], df["kdj_d"] = talib.STOCH(
+#         df["high"].values, df["low"].values, df["close"].values, fastk_period=9, slowk_period=3, slowd_period=3
+#     )
+
     # 均线指标
     df["ma1"] = talib.SMA(df["close"].values, 50)
     df["ma2"] = talib.SMA(df["close"].values, 120)
