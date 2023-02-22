@@ -53,8 +53,12 @@ class MACDStrategyClass(BaseStrategyClass):
         self.rsi1 = bt.talib.RSI(self.close, timeperiod=6)
         self.rsi2 = bt.talib.RSI(self.close, timeperiod=24)
 
-        self.kdj = bt.indicators.StochasticFast(period=9)
-        self.kdj_signal = bt.indicators.CrossOver(self.kdj.lines.percK, self.kdj.lines.percD)
+        self.kdj = bt.indicators.StochasticFull(
+            period=9, period_dfast=3, period_dslow=3
+        )       
+        self.k = self.kdj.lines.k
+        self.d = self.kdj.lines.d
+        self.j = self.kdj.lines.j
         
         atr_period = 20
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=atr_period)
