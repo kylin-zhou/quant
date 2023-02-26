@@ -89,18 +89,22 @@ def calculate_long_short(df):
             # and df.loc[i, "close"] > df.loc[i, "ma1"]
         ):
             df.loc[i, "signal"] = "long"
-        elif df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
+        if df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
             df.loc[i, "signal"] = "long"
+        # if df.loc[i, "macd"] > 0 and df.loc[i - 1, "macd"] < 0:
+        #     df.loc[i, "signal"] = "long"
         # 如果在0轴下方macd死叉或macdhist小于0且kdj死叉，将short对应的行变为ture
-        elif (
+        if (
             df.loc[i, "macd_hist"] < 0
             and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
             # and df.loc[i, "close"] < df.loc[i, "ma1"]
         ):
             df.loc[i, "signal"] = "short"
-        elif df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
+        if df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
             df.loc[i, "signal"] = "short"
+        # if df.loc[i, "macd"] < 0 and df.loc[i - 1, "macd"] > 0:
+        #     df.loc[i, "signal"] = "short"
 
     return df
 
