@@ -104,8 +104,8 @@ def calculate_long_short(df):
 #     )
 
     # 均线指标
-    df["ma1"] = talib.SMA(df["close"].values, 50)
-    df["ma2"] = talib.SMA(df["close"].values, 120)
+    df["ma1"] = talib.SMA(df["close"].values, 120)
+    df["ma2"] = talib.SMA(df["close"].values, 240)
 
     # 创建long和short列，初始值为false
     df["signal"] = "--"
@@ -116,7 +116,6 @@ def calculate_long_short(df):
             df.loc[i, "macd_hist"] > 0
             and df.loc[i, "kdj_k"] > df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] < df.loc[i - 1, "kdj_d"]
-            # and df.loc[i, "close"] > df.loc[i, "ma1"]
         ):
             df.loc[i, "signal"] = "long"
         if df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
@@ -128,7 +127,6 @@ def calculate_long_short(df):
             df.loc[i, "macd_hist"] < 0
             and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
-            # and df.loc[i, "close"] < df.loc[i, "ma1"]
         ):
             df.loc[i, "signal"] = "short"
         if df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
@@ -149,7 +147,7 @@ def analyze_win_rate(df):
         for i in range(len(df) - days):
             if df.loc[i, "signal"] == "long":
                 long_total_count += 1
-                if df.loc[i + days, "close"] > df.loc[i, "close"]:
+                if df.loc[i + days, "close"] > df.loc[i, "close"]+1:
                     long_win_count += 1
 
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
@@ -160,7 +158,7 @@ def analyze_win_rate(df):
 
             elif df.loc[i, "signal"] == "short":
                 short_total_count += 1
-                if df.loc[i + days, "close"] < df.loc[i, "close"]:
+                if df.loc[i + days, "close"] < df.loc[i, "close"]-1:
                     short_win_count += 1
 
                 change = df.loc[i + days, "close"] / df.loc[i, "close"] - 1
@@ -202,11 +200,18 @@ def plot_signal(df, name=""):
     close = df["close"]
     fig = plt.figure(dpi=300,figsize=(30, 10))
     plt.plot(close, color="r", lw=2.0)
-    plt.plot(df["ma1"], color="y", lw=2.0)
-    plt.plot(df["ma2"], color="b", lw=2.0)
+    plt.plot(df["ma1"], color="y", lw=2.0, label="ma1")
+    plt.plot(df["ma2"], color="b", lw=2.0, label="ma2")
     plt.plot(close, "^", markersize=10, color="m", label="buying signal", markevery=states_buy)
     plt.plot(close, "v", markersize=10, color="k", label="selling signal", markevery=states_sell)
     plt.title(f"{name} buy/sell signal")
+
+    # 添加网格虚线栅格，网格间隔为价格的1%
+    plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
+    plt.yticks(range(int(min(close)), int(max(close)+1), int(max(close)*0.01)))
+    plt.tick_params(axis='x', labelsize=10)
+    plt.tick_params(axis='y', labelsize=10)
+
     plt.legend()
     plt.savefig(f"tmp/{name}.png")
 
@@ -232,7 +237,7 @@ if __name__ == "__main__":
     
     symbols = {
         "future": [
-            "MA2305", "v2305", "RB2305", "c2305"
+            "MA2305", "v2305", "RB2305", "CF2305","c2305"
             ],
         # "etf": [
         # "sh513050", "sh515790", "sh512170", "sh512690",
