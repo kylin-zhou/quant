@@ -47,8 +47,8 @@ class MACDStrategyClass(BaseStrategyClass):
         self.diff = macd.macd
         self.dea = macd.signal
  
-        self.ma20 = bt.talib.SMA(self.close, timeperiod=20, subplot=False)
-        self.ma100 = bt.talib.SMA(self.close, timeperiod=100, subplot=False)
+        self.ma1 = bt.talib.SMA(self.close, timeperiod=120, subplot=False)
+        self.ma2 = bt.talib.SMA(self.close, timeperiod=240, subplot=False)
 
         self.rsi1 = bt.talib.RSI(self.close, timeperiod=6)
         self.rsi2 = bt.talib.RSI(self.close, timeperiod=24)
@@ -91,21 +91,19 @@ class MACDStrategyClass(BaseStrategyClass):
         if abs(self.ma100 -self.ma100[-50]) > 0.5*self.ATR[0]:
             # macd金叉做多
             if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
-                self.close > self.ma100
+                self.ma1 > self.ma2
             ):
                 self.buySig = True
             if (self.diff>self.dea
-                and self.close > self.ma20
                 and self.rsi1[-1]<self.rsi2[-1] and self.rsi1>self.rsi2
             ):
                 self.buySig = True
             # macd死叉做空
             if (self.diff[-1]>self.dea[-1] and self.diff<self.dea and
-                self.close < self.ma100
+                self.ma1 < self.ma2
             ):
                 self.shortSig = True
             if (self.diff<self.dea
-                and self.close < self.ma20
                 and self.rsi1[-1]>self.rsi2[-1] and self.rsi1<self.rsi2
             ):
                 self.shortSig = True
