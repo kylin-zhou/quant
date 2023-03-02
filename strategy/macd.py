@@ -52,13 +52,6 @@ class MACDStrategyClass(BaseStrategyClass):
 
         self.rsi1 = bt.talib.RSI(self.close, timeperiod=6)
         self.rsi2 = bt.talib.RSI(self.close, timeperiod=24)
-
-        self.kdj = bt.indicators.StochasticFull(
-            period=9, period_dfast=3, period_dslow=3
-        )       
-        self.k = self.kdj.lines.k
-        self.d = self.kdj.lines.d
-        self.j = self.kdj.lines.j
         
         atr_period = 20
         self.ATR = bt.talib.ATR(self.high, self.low, self.close, timeperiod=atr_period)
@@ -88,7 +81,7 @@ class MACDStrategyClass(BaseStrategyClass):
         self.shortStopLoss = False
 
         # 计算信号
-        if abs(self.ma100 -self.ma100[-50]) > 0.5*self.ATR[0]:
+        if abs(self.ma1 -self.ma1[-50]) > 0.5*self.ATR[0]:
             # macd金叉做多
             if (self.diff[-1]<self.dea[-1] and self.diff>self.dea and
                 self.ma1 > self.ma2

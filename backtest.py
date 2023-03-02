@@ -123,7 +123,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--future",
-        help="future contract"
+        help="future contract",
+        default="ma0",
     )
     args = parser.parse_args()
 
