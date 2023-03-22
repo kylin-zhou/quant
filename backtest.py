@@ -58,7 +58,7 @@ def main(StrategyClass, symbol="MA0"):
     cerebro.adddata(get_data(symbol), name=f'{symbol}')
 
     # 初始资金 100,000
-    start_cash = 100000
+    start_cash = 30000
     cerebro.broker.setcash(start_cash)  # 设置初始资本为 100000
     cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
                                 mult=300, # 合约乘数

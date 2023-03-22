@@ -1,6 +1,7 @@
 import sys
 import akshare as ak
 import numpy as np
+import pandas as pd
 import talib
 import matplotlib.pyplot as plt
 # from prettytable import PrettyTable
@@ -104,8 +105,9 @@ def calculate_long_short(df):
 #     )
 
     # 均线指标
+    df["ma0"] = talib.SMA(df["close"].values, 50)
     df["ma1"] = talib.SMA(df["close"].values, 120)
-    df["ma2"] = talib.SMA(df["close"].values, 240)
+    df["ma2"] = talib.SMA(df["close"].values, 150)
 
     # 创建long和short列，初始值为false
     df["signal"] = "--"
@@ -116,30 +118,29 @@ def calculate_long_short(df):
             df.loc[i, "macd_hist"] > 0
             and df.loc[i, "kdj_k"] > df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] < df.loc[i - 1, "kdj_d"]
+            and df.loc[i,"close"] > df.loc[i,"ma0"]
         ):
             df.loc[i, "signal"] = "long"
         if df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
             df.loc[i, "signal"] = "long"
-        # if df.loc[i, "macd"] > 0 and df.loc[i - 1, "macd"] < 0:
-        #     df.loc[i, "signal"] = "long"
+            
         # 如果在0轴下方macd死叉或macdhist小于0且kdj死叉，将short对应的行变为ture
         if (
             df.loc[i, "macd_hist"] < 0
             and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
+            and df.loc[i,"close"] < df.loc[i,"ma0"]
         ):
             df.loc[i, "signal"] = "short"
         if df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
             df.loc[i, "signal"] = "short"
-        # if df.loc[i, "macd"] < 0 and df.loc[i - 1, "macd"] > 0:
-        #     df.loc[i, "signal"] = "short"
 
     return df
 
 
 def analyze_win_rate(df):
     win_rate = {}
-    for days in [5, 10, 20, 30]:
+    for days in [10, 20, 30]:
         long_win_count, short_win_count = 0, 0
         long_total_count, short_total_count = 0, 0
         long_up_changes, long_down_changes = [0], [0]
@@ -215,6 +216,41 @@ def plot_signal(df, name=""):
     plt.legend()
     plt.savefig(f"tmp/{name}.png")
 
+def plot_f(df, name=""):
+    import mplfinance as mpf
+
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df.set_index("datetime", inplace=True)
+
+    # 准备交易信号数据，这里假设有三种信号：开多仓，开空仓
+    df["buy"] = np.nan
+    df.loc[df["signal"] == "long", "buy"] = df.loc[df["signal"] == "long", "low"]
+    df["sell"] = np.nan
+    df.loc[df["signal"] == "short", "sell"] = df.loc[df["signal"] == "short", "high"]
+
+
+    apd = [
+        mpf.make_addplot(df["buy"], scatter=True, markersize=50, marker='^', color='m'),
+        mpf.make_addplot(df["sell"], scatter=True, markersize=50, marker='v', color='k')
+    ]
+
+    save = dict(fname=f"tmp/{name}.png", dpi=600, bbox_inches='tight')
+
+    mpf.plot(
+        data=df,
+        type="candle",
+        title=f"{name} trading signals",
+        ylabel="price",
+        style="binance",
+        volume=True,
+        mav=(50, 120, 150),
+        addplot=apd,
+        tight_layout=False, 
+        savefig=save,
+        figsize=(30, 15),
+        warn_too_much_data=10000
+    )
+
 def backtest(df):
     """get buy/sell signal 5/10/20/50 Win/Loss Ratio
 
@@ -237,7 +273,7 @@ if __name__ == "__main__":
     
     symbols = {
         "future": [
-            "MA2305", "v2305", "RB2305", "CF2305","c2305"
+            "MA2305", "v2305", "RB2305", "CF2305","sa2305"
             ],
         # "etf": [
         # "sh513050", "sh515790", "sh512170", "sh512690",
@@ -248,8 +284,7 @@ if __name__ == "__main__":
         for symbol in symbols[market]:
             print(symbol)
             if market == "future":
-                df = ak.futures_zh_minute_sina(symbol=symbol, period="30").iloc[:, :6]
-                # iloc[600:, :6].reset_index(drop=True)
+                df = ak.futures_zh_minute_sina(symbol=symbol, period="30").iloc[-1000:, :6].reset_index(drop=True)
             else:
                 df = ak.fund_etf_hist_sina(symbol=symbol).iloc[:, :6]
             df.columns = ["datetime", "open", "high", "low", "close", "volume"]
@@ -257,9 +292,10 @@ if __name__ == "__main__":
             # print(df.head(1), "\n", df.tail(1))
             backtest(df)
 
-            plot_signal(df, name=symbol)
+            # plot_signal(df, name=symbol)
+            plot_f(df, name=symbol)
 
-            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
+            # df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
 
     # print(table)
 
