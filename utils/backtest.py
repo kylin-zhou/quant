@@ -118,7 +118,7 @@ def calculate_long_short(df):
             df.loc[i, "macd_hist"] > 0
             and df.loc[i, "kdj_k"] > df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] < df.loc[i - 1, "kdj_d"]
-            and df.loc[i,"close"] > df.loc[i,"ma0"]
+            and df.loc[i,"close"] > df.loc[i,"ma1"]
         ):
             df.loc[i, "signal"] = "long"
         if df.loc[i, "ma1"] > df.loc[i, "ma2"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0:
@@ -129,7 +129,7 @@ def calculate_long_short(df):
             df.loc[i, "macd_hist"] < 0
             and df.loc[i, "kdj_k"] < df.loc[i, "kdj_d"]
             and df.loc[i - 1, "kdj_k"] > df.loc[i - 1, "kdj_d"]
-            and df.loc[i,"close"] < df.loc[i,"ma0"]
+            and df.loc[i,"close"] < df.loc[i,"ma1"]
         ):
             df.loc[i, "signal"] = "short"
         if df.loc[i, "ma1"] < df.loc[i, "ma2"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0:
@@ -230,11 +230,11 @@ def plot_f(df, name=""):
 
 
     apd = [
-        mpf.make_addplot(df["buy"], scatter=True, markersize=50, marker='^', color='m'),
-        mpf.make_addplot(df["sell"], scatter=True, markersize=50, marker='v', color='k')
+        mpf.make_addplot(df["buy"], scatter=True, markersize=30, marker='^', color='m'),
+        mpf.make_addplot(df["sell"], scatter=True, markersize=30, marker='v', color='k')
     ]
 
-    save = dict(fname=f"tmp/{name}.png", dpi=600, bbox_inches='tight')
+    save = dict(fname=f"tmp/{name}.png", dpi=300, bbox_inches='tight')
 
     mpf.plot(
         data=df,
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     
     symbols = {
         "future": [
-            "MA2305", "v2305", "RB2305", "CF2305","sa2305"
+            "v2305", "RB2305", "CF2305","sr2305"
             ],
         # "etf": [
         # "sh513050", "sh515790", "sh512170", "sh512690",
@@ -295,7 +295,7 @@ if __name__ == "__main__":
             # plot_signal(df, name=symbol)
             plot_f(df, name=symbol)
 
-            # df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
+            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
 
     # print(table)
 
