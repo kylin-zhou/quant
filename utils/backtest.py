@@ -138,6 +138,48 @@ def calculate_long_short(df):
     return df
 
 
+def calculate_indicator_sar(df):
+    # 计算 MACD 指标
+    df["macd"], df["macd_signal"], df["macd_hist"] = talib.MACD(
+        df["close"].values, fastperiod=20, slowperiod=50, signalperiod=10
+    )
+
+    df["sar"] = talib.SAR(df["high"], df["low"], acceleration=0.02, maximum=0.2)
+
+    # 均线指标
+    df["ma0"] = talib.SMA(df["close"].values, 50)
+    df["ma1"] = talib.SMA(df["close"].values, 120)
+    df["ma2"] = talib.SMA(df["close"].values, 150)
+
+    # 平均穿透
+
+    # 创建long和short列，初始值为false
+    df["signal"] = "--"
+    position = False
+    for i in range(150, len(df)):
+        # macd 和 sar 金，做多，将long对应的行变为true
+        if df.loc[i, "ma1"] > df.loc[i, "ma2"] and (
+            (
+                df.loc[i, "macd_hist"] > 0
+                and df.loc[i, "close"] > df.loc[i, "sar"]
+                and df.loc[i - 1, "close"] < df.loc[i - 1, "sar"]
+            )
+            or (df.loc[i, "close"] > df.loc[i, "sar"] and df.loc[i, "macd_hist"] > 0 and df.loc[i - 1, "macd_hist"] < 0)
+        ):
+            df.loc[i, "signal"] = "long"
+        # 将short对应的行变为ture
+        if df.loc[i, "ma1"] < df.loc[i, "ma2"] and (
+            (
+                df.loc[i, "macd_hist"] < 0
+                and df.loc[i, "close"] < df.loc[i, "sar"]
+                and df.loc[i - 1, "close"] > df.loc[i - 1, "sar"]
+            )
+            or (df.loc[i, "close"] < df.loc[i, "sar"] and df.loc[i, "macd_hist"] < 0 and df.loc[i - 1, "macd_hist"] > 0)
+        ):
+            df.loc[i, "signal"] = "short"
+
+    return df
+
 def analyze_win_rate(df):
     win_rate = {}
     for days in [10, 20, 30]:
