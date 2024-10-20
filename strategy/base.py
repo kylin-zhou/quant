@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import talib as ta
 from datetime import datetime
+from loguru import logger
  
 import os, sys
  
@@ -16,12 +17,10 @@ import os, sys
 """
  
 class BaseStrategyClass(bt.Strategy):
+    '''策略基类
     '''
-    '''
- 
     def __init__(self):
-        # sma源码位于indicators\macd.py
-        # 指标必须要定义在策略类中的初始化函数中
+        # 指标必须要定义在策略类中的初始化函数中, 初始化策略中使用的各项指标、变量
         self.close = self.datas[0].close
         self.open = self.datas[0].open
         self.high = self.datas[0].high
@@ -34,13 +33,14 @@ class BaseStrategyClass(bt.Strategy):
         self.hard_loss = 0.02
         self.atr_rate = 1
  
-    def log(self, txt, dt=None):
+    def log(self, txt):
         ''' Logging function for this strategy'''
-        dt = dt or self.datas[0].datetime.date(0)
-        print('%s, %s' % (dt.isoformat(), txt))
+        dt = self.datas[0].datetime.date(0)
+        logger.info(f'{dt.isoformat()}, {txt}')
  
     def notify_cashvalue(self, cash, value):
-        self.log('Cash %s Value %s' % (cash, value))
+        pass
+        # self.log('Cash %s Value %s' % (cash, value))
  
     def notify_order(self, order):
         print(type(order), 'Is Buy ', order.isbuy())
@@ -82,4 +82,5 @@ class BaseStrategyClass(bt.Strategy):
                  (trade.pnl, trade.pnlcomm))
  
     def next(self):
+        # 策略的主逻辑，在每个新的数据点（例如每个新的价格条）到达时被调用
         pass

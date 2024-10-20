@@ -17,16 +17,15 @@ import talib as ta
 
 sys.path.append("D:/quant")
 from utils.factor import get_feature_df, get_feature_label
-from models import LSTMModel, LSTM, ALSTM, TCN
 
 
-""" 学习策略
-预测上涨, 买入, 做多
-预测下跌, 卖出, 做空
+""" AI策略
+model 预测上涨, 买入, 做多
+model 预测下跌, 卖出, 做空
 TR止损
 """
 
-class StrategyClass(bt.Strategy):
+class MLStrategyClass(bt.Strategy):
     '''
     '''
  
@@ -222,7 +221,7 @@ cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
                              stocklike=False)
 
 # 加入策略
-cerebro.addstrategy(StrategyClass)
+cerebro.addstrategy(MLStrategyClass)
 # 回测时需要添加 PyFolio 分析器
 cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
 cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据

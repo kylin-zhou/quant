@@ -1,1 +1,2 @@
-matplotlib==3.2.2
+matplotlib
+ipykernel==5.1.1

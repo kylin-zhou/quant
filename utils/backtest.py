@@ -36,6 +36,17 @@ def get_r2(close, n):
     r2 = 1 - sse / sst
     return r2
 
+def get_volatility(df, n):
+    open, close, high, low = df.open.values[-n:], df.close.values[-n:], df.high.values[-n:], df.low.values[-n:]
+
+    avg = (open + close) / 2
+    max_min = (high - low)+1
+    day_vola = np.max([np.abs(avg-high), np.abs(avg-low)], axis=0)
+    day_vola = [raw/base for raw,base in zip(day_vola,max_min)]
+    vola = np.mean(day_vola)
+    return vola
+
+
 def calculate_indicator(df):
     close, high, low = df.close.values, df.high.values, df.low.values
 
@@ -273,7 +284,7 @@ if __name__ == "__main__":
     
     symbols = {
         "future": [
-            "v2305", "RB2305", "CF2305","sr2305"
+            "ma2305","v2305", "RB2310", "CF2309","sr2307", "eb2401", "pp2401","c2401","sp2401","i2401"
             ],
         # "etf": [
         # "sh513050", "sh515790", "sh512170", "sh512690",
@@ -289,13 +300,15 @@ if __name__ == "__main__":
                 df = ak.fund_etf_hist_sina(symbol=symbol).iloc[:, :6]
             df.columns = ["datetime", "open", "high", "low", "close", "volume"]
 
-            # print(df.head(1), "\n", df.tail(1))
-            backtest(df)
+            # # print(df.head(1), "\n", df.tail(1))
+            # backtest(df)
 
-            # plot_signal(df, name=symbol)
-            plot_f(df, name=symbol)
+            # # plot_signal(df, name=symbol)
+            # plot_f(df, name=symbol)
 
-            df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
+            # df.drop(["ma1", "ma2"], axis=1).round(5).to_csv(f"tmp/{symbol}.csv", index=False)
+
+            print("volatility:\t", get_volatility(df, 100))
 
     # print(table)
 

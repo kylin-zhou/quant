@@ -12,7 +12,7 @@ import pandas as pd
 import talib as ta
 from datetime import datetime
  
-from ._base import BaseStrategyClass
+from .base import BaseStrategyClass
  
 """ 多均线策略
 """

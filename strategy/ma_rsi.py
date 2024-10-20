@@ -11,7 +11,7 @@ import pandas as pd
 import talib as ta
 from datetime import datetime
  
-from ._base import BaseStrategyClass
+from .base import BaseStrategyClass
 
 """ 趋势策略
 1. 以长期均线作为趋势滤波，只在上升趋势做多，下降趋势做空
@@ -21,7 +21,7 @@ from ._base import BaseStrategyClass
 3. ATR动态止损、信号止损
 """
  
-class TrendStrategyClass(BaseStrategyClass):
+class MARSIStrategyClass(BaseStrategyClass):
     '''
     '''
  

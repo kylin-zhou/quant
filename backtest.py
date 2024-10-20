@@ -3,6 +3,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import backtrader as bt  # 引入backtrader框架
+import matplotlib.pyplot as plt
 
 import os, sys
 import akshare as ak
@@ -11,28 +12,24 @@ import pandas as pd
 import talib as ta
 from datetime import datetime
 import argparse
-
+from loguru import logger
 
 import quantstats as qs
 # extend pandas functionality with metrics, etc.
 qs.extend_pandas()
 
-from strategy import (
-    MACDStrategyClass,
-    MAStrategyClass,
-    ETFMAStrategyClass,
-    AMAStrategyClass,
-    ETFAMAStrategyClass,
-    TrendStrategyClass
-)
+from strategy import get_strategy_cls
+
+logger.add('backtest.log', level='INFO', encoding='utf-8', format='{message}', mode='w')
  
-def get_data(symbol, start_date='2022-01-01', end_date='2023-09-27'):
+def get_data(symbol, period=5, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     # history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
-    history_df = ak.futures_zh_minute_sina(symbol=symbol, period="30").iloc[:, :6]
+    history_df = ak.futures_zh_minute_sina(symbol=symbol, period=period).iloc[:, :6]
     # history_df = ak.fund_etf_hist_sina(symbol="sh588000")
     # history_df = pd.read_csv("D:/quant/data/futures/dominant/TA9999.XZCE.30m.csv")
+
     # 处理字段命名，以符合 Backtrader 的要求
     history_df.columns = [
         'date',
@@ -53,19 +50,19 @@ def get_data(symbol, start_date='2022-01-01', end_date='2023-09-27'):
  
     return data
 
-def main(StrategyClass, symbol="MA0"):
+def main(StrategyClass, symbol):
     cerebro = bt.Cerebro()
     cerebro.adddata(get_data(symbol), name=f'{symbol}')
 
-    # 初始资金 100,000
-    start_cash = 30000
-    cerebro.broker.setcash(start_cash)  # 设置初始资本为 100000
-    cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
-                                mult=300, # 合约乘数
+    # 初始资金 10,000
+    start_cash = 10000
+    cerebro.broker.setcash(start_cash)  # 设置初始资本为 10000
+    cerebro.broker.setcommission(commission=0.001, # 按 0.1% 来收取手续费
                                 margin=0.1, # 保证金比例
+                                mult=10, # 合约乘数
                                 percabs=False, # 表示 commission 以 % 为单位
                                 commtype=bt.CommInfoBase.COMM_FIXED,
-                                stocklike=False)
+                                stocklike=True)
 
     # 加入策略
     cerebro.addstrategy(StrategyClass)
@@ -102,7 +99,6 @@ def main(StrategyClass, symbol="MA0"):
 
     cerebro.plot(style='candlestick')  # 画图
     
-    
     print(" win rate\t{:.3f}\n win_loss_ratio\t{:.3f}\n avg_return\t{:.3f}\n avg_win\t{:.3f}\n avg_loss\t{:.3f}".format(
         qs.stats.win_rate(daily_return), qs.stats.win_loss_ratio(daily_return),
         qs.stats.avg_return(daily_return), qs.stats.avg_win(daily_return), qs.stats.avg_loss(daily_return)
@@ -118,27 +114,16 @@ if __name__ == "__main__":
         "-s",
         "--strategy",
         help="strategy name",
-        default="macd",
+        default="macd_sar",
     )
     parser.add_argument(
         "-f",
         "--future",
         help="future contract",
-        default="ma0",
+        default="rb0",
     )
     args = parser.parse_args()
 
-    if args.strategy == "macd":
-        strategy = MACDStrategyClass
-    if args.strategy == "ma":
-        strategy = MAStrategyClass
-    if args.strategy == "ama":
-        strategy = AMAStrategyClass
-    if args.strategy == "trend":
-        strategy = TrendStrategyClass
-    if args.strategy == "etf-ma":
-        strategy = ETFMAStrategyClass
-    if args.strategy == "etf-ama":
-        strategy = ETFAMAStrategyClass
+    strategy = get_strategy_cls[args.strategy]
     
     main(StrategyClass=strategy, symbol=args.future)

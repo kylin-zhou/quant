@@ -1,11 +1,17 @@
-from datetime import datetime
+# -*- coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-import backtrader as bt  # 升级到最新版
-import matplotlib.pyplot as plt  # 由于 Backtrader 的问题，此处要求 pip install matplotlib==3.2.2
-import akshare as ak  # 升级到最新版
+import backtrader as bt  # 引入backtrader框架
+
+import akshare as ak
 import pandas as pd
+ 
+from datetime import datetime
+import os, sys
 
-class TurtleTradingStrategy(bt.Strategy):
+
+class TurtleStrategyClass(bt.Strategy):
     params = dict(
         N1= 20, # 唐奇安通道上轨的t
         N2=10, # 唐奇安通道下轨的t
@@ -172,127 +178,127 @@ class TurtleTradingStrategy(bt.Strategy):
                     trade.getdataname(), trade.size, trade.price))
    
   
-# 准备股票日线数据，输入到backtrader
-# 利用 AKShare 获取股票的后复权数据，这里只获取前 6 列
-IF_price = ak.futures_main_sina("MA0", start_date='2022-01-01', end_date='2022-09-01').iloc[:, :6]
-# 处理字段命名，以符合 Backtrader 的要求
-IF_price.columns = [
-    'date',
-    'open',
-    'high',
-    'low',
-    'close',
-    'volume',
-]
-# 把 date 作为日期索引，以符合 Backtrader 的要求
-IF_price.index = pd.to_datetime(IF_price['date'])
+# # 准备股票日线数据，输入到backtrader
+# # 利用 AKShare 获取股票的后复权数据，这里只获取前 6 列
+# IF_price = ak.futures_main_sina("MA0", start_date='2022-01-01', end_date='2022-09-01').iloc[:, :6]
+# # 处理字段命名，以符合 Backtrader 的要求
+# IF_price.columns = [
+#     'date',
+#     'open',
+#     'high',
+#     'low',
+#     'close',
+#     'volume',
+# ]
+# # 把 date 作为日期索引，以符合 Backtrader 的要求
+# IF_price.index = pd.to_datetime(IF_price['date'])
 
-datafeed = bt.feeds.PandasData(dataname=IF_price,
-                           fromdate=pd.to_datetime('2022-01-01'),
-                           todate=pd.to_datetime('2022-09-01'))
+# datafeed = bt.feeds.PandasData(dataname=IF_price,
+#                            fromdate=pd.to_datetime('2022-01-01'),
+#                            todate=pd.to_datetime('2022-09-01'))
                            
-# 创建主控制器
-cerebro = bt.Cerebro()
-cerebro.adddata(datafeed, name='IF')
+# # 创建主控制器
+# cerebro = bt.Cerebro()
+# cerebro.adddata(datafeed, name='IF')
 
-# 初始资金 100,000
-start_cash = 100000
-cerebro.broker.setcash(start_cash)  # 设置初始资本为 100000
-cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
-                             mult=300, # 合约乘数
-                             margin=0.1, # 保证金比例
-                             percabs=False, # 表示 commission 以 % 为单位
-                             commtype=bt.CommInfoBase.COMM_FIXED,
-                             stocklike=False)
+# # 初始资金 100,000
+# start_cash = 100000
+# cerebro.broker.setcash(start_cash)  # 设置初始资本为 100000
+# cerebro.broker.setcommission(commission=0.1, # 按 0.1% 来收取手续费
+#                              mult=300, # 合约乘数
+#                              margin=0.1, # 保证金比例
+#                              percabs=False, # 表示 commission 以 % 为单位
+#                              commtype=bt.CommInfoBase.COMM_FIXED,
+#                              stocklike=False)
 
-# 加入策略
-cerebro.addstrategy(TurtleTradingStrategy)
-# 回测时需要添加 PyFolio 分析器
-cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
-cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
-cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn') # 年化收益率
-cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio') # 夏普比率
-cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown') # 回撤
+# # 加入策略
+# cerebro.addstrategy(TurtleStrategyClass)
+# # 回测时需要添加 PyFolio 分析器
+# cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
+# cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
+# cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn') # 年化收益率
+# cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio') # 夏普比率
+# cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown') # 回撤
 
-result = cerebro.run() # 运行回测系统
-# 从返回的 result 中提取回测结果
-strat = result[0]
-# # 返回日度收益率序列
-daily_return = pd.Series(strat.analyzers.pnl.get_analysis())
-# 打印评价指标
-print("--------------- AnnualReturn -----------------")
-print(strat.analyzers._AnnualReturn.get_analysis())
-print("--------------- SharpeRatio -----------------")
-print(strat.analyzers._SharpeRatio.get_analysis())
-print("--------------- DrawDown -----------------")
-print(strat.analyzers._DrawDown.get_analysis())
+# result = cerebro.run() # 运行回测系统
+# # 从返回的 result 中提取回测结果
+# strat = result[0]
+# # # 返回日度收益率序列
+# daily_return = pd.Series(strat.analyzers.pnl.get_analysis())
+# # 打印评价指标
+# print("--------------- AnnualReturn -----------------")
+# print(strat.analyzers._AnnualReturn.get_analysis())
+# print("--------------- SharpeRatio -----------------")
+# print(strat.analyzers._SharpeRatio.get_analysis())
+# print("--------------- DrawDown -----------------")
+# print(strat.analyzers._DrawDown.get_analysis())
 
-port_value = cerebro.broker.getvalue()  # 获取回测结束后的总资金
-pnl = port_value - start_cash  # 盈亏统计
+# port_value = cerebro.broker.getvalue()  # 获取回测结束后的总资金
+# pnl = port_value - start_cash  # 盈亏统计
 
-print(f"初始资金: {start_cash}")
-print(f"总资金: {round(port_value, 2)}")
-print(f"净收益: {round(pnl, 2)}")
+# print(f"初始资金: {start_cash}")
+# print(f"总资金: {round(port_value, 2)}")
+# print(f"净收益: {round(pnl, 2)}")
 
-cerebro.plot(style='candlestick')  # 画图
+# cerebro.plot(style='candlestick')  # 画图
 
 
 
-# 计算累计收益
-cumulative = (daily_return + 1).cumprod()
-# 计算回撤序列
-max_return = cumulative.cummax()
-drawdown = (cumulative - max_return) / max_return
-# 计算收益评价指标
-import pyfolio as pf
-# 按年统计收益指标
-perf_stats_year = (daily_return).groupby(daily_return.index.to_period('y')).apply(lambda data: pf.timeseries.perf_stats(data)).unstack()
-# 统计所有时间段的收益指标
-perf_stats_all = pf.timeseries.perf_stats((daily_return)).to_frame(name='all')
-perf_stats = pd.concat([perf_stats_year, perf_stats_all.T], axis=0)
-perf_stats_ = round(perf_stats,4).reset_index()
+# # 计算累计收益
+# cumulative = (daily_return + 1).cumprod()
+# # 计算回撤序列
+# max_return = cumulative.cummax()
+# drawdown = (cumulative - max_return) / max_return
+# # 计算收益评价指标
+# import pyfolio as pf
+# # 按年统计收益指标
+# perf_stats_year = (daily_return).groupby(daily_return.index.to_period('y')).apply(lambda data: pf.timeseries.perf_stats(data)).unstack()
+# # 统计所有时间段的收益指标
+# perf_stats_all = pf.timeseries.perf_stats((daily_return)).to_frame(name='all')
+# perf_stats = pd.concat([perf_stats_year, perf_stats_all.T], axis=0)
+# perf_stats_ = round(perf_stats,4).reset_index()
  
  
-# 绘制图形
-import matplotlib.pyplot as plt
-plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
-import matplotlib.ticker as ticker # 导入设置坐标轴的模块
-plt.style.use('seaborn') # plt.style.use('dark_background')
+# # 绘制图形
+# import matplotlib.pyplot as plt
+# plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+# import matplotlib.ticker as ticker # 导入设置坐标轴的模块
+# plt.style.use('seaborn') # plt.style.use('dark_background')
  
-fig, (ax0, ax1) = plt.subplots(2,1, gridspec_kw = {'height_ratios':[1.5, 4]}, figsize=(16,9))
-cols_names = ['date', 'Annual\nreturn', 'Cumulative\nreturns', 'Annual\nvolatility',
-       'Sharpe\nratio', 'Calmar\nratio', 'Stability', 'Max\ndrawdown',
-       'Omega\nratio', 'Sortino\nratio', 'Skew', 'Kurtosis', 'Tail\nratio',
-       'Daily value\nat risk']
+# fig, (ax0, ax1) = plt.subplots(2,1, gridspec_kw = {'height_ratios':[1.5, 4]}, figsize=(16,9))
+# cols_names = ['date', 'Annual\nreturn', 'Cumulative\nreturns', 'Annual\nvolatility',
+#        'Sharpe\nratio', 'Calmar\nratio', 'Stability', 'Max\ndrawdown',
+#        'Omega\nratio', 'Sortino\nratio', 'Skew', 'Kurtosis', 'Tail\nratio',
+#        'Daily value\nat risk']
  
-# 绘制表格
-ax0.set_axis_off() # 除去坐标轴
-table = ax0.table(cellText = perf_stats_.values, 
-                bbox=(0,0,1,1), # 设置表格位置， (x0, y0, width, height)
-                rowLoc = 'right', # 行标题居中
-                cellLoc='right' ,
-                colLabels = cols_names, # 设置列标题
-                colLoc = 'right', # 列标题居中
-                edges = 'open' # 不显示表格边框
-                )
-table.set_fontsize(13)
+# # 绘制表格
+# ax0.set_axis_off() # 除去坐标轴
+# table = ax0.table(cellText = perf_stats_.values, 
+#                 bbox=(0,0,1,1), # 设置表格位置， (x0, y0, width, height)
+#                 rowLoc = 'right', # 行标题居中
+#                 cellLoc='right' ,
+#                 colLabels = cols_names, # 设置列标题
+#                 colLoc = 'right', # 列标题居中
+#                 edges = 'open' # 不显示表格边框
+#                 )
+# table.set_fontsize(13)
  
-# 绘制累计收益曲线
-ax2 = ax1.twinx()
-ax1.yaxis.set_ticks_position('right') # 将回撤曲线的 y 轴移至右侧
-ax2.yaxis.set_ticks_position('left') # 将累计收益曲线的 y 轴移至左侧
-# 绘制回撤曲线
-drawdown.plot.area(ax=ax1, label='drawdown (right)', rot=0, alpha=0.3, fontsize=13, grid=False)
-# 绘制累计收益曲线
-(cumulative).plot(ax=ax2, color='#F1C40F' , lw=3.0, label='cumret (left)', rot=0, fontsize=13, grid=False)
-# 不然 x 轴留有空白
-ax2.set_xbound(lower=cumulative.index.min(), upper=cumulative.index.max())
-# 主轴定位器：每 5 个月显示一个日期：根据具体天数来做排版
-ax2.xaxis.set_major_locator(ticker.MultipleLocator(100)) 
-# 同时绘制双轴的图例
-h1,l1 = ax1.get_legend_handles_labels()
-h2,l2 = ax2.get_legend_handles_labels()
-plt.legend(h1+h2,l1+l2, fontsize=12, loc='upper left', ncol=1)
+# # 绘制累计收益曲线
+# ax2 = ax1.twinx()
+# ax1.yaxis.set_ticks_position('right') # 将回撤曲线的 y 轴移至右侧
+# ax2.yaxis.set_ticks_position('left') # 将累计收益曲线的 y 轴移至左侧
+# # 绘制回撤曲线
+# drawdown.plot.area(ax=ax1, label='drawdown (right)', rot=0, alpha=0.3, fontsize=13, grid=False)
+# # 绘制累计收益曲线
+# (cumulative).plot(ax=ax2, color='#F1C40F' , lw=3.0, label='cumret (left)', rot=0, fontsize=13, grid=False)
+# # 不然 x 轴留有空白
+# ax2.set_xbound(lower=cumulative.index.min(), upper=cumulative.index.max())
+# # 主轴定位器：每 5 个月显示一个日期：根据具体天数来做排版
+# ax2.xaxis.set_major_locator(ticker.MultipleLocator(100)) 
+# # 同时绘制双轴的图例
+# h1,l1 = ax1.get_legend_handles_labels()
+# h2,l2 = ax2.get_legend_handles_labels()
+# plt.legend(h1+h2,l1+l2, fontsize=12, loc='upper left', ncol=1)
  
-fig.tight_layout() # 规整排版
-plt.show()
+# fig.tight_layout() # 规整排版
+# plt.show()

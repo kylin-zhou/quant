@@ -13,8 +13,7 @@ from copy import deepcopy
 import os, sys
  
 import torch
-sys.path.append("D:/quant")
-from models import LSTMModel, LSTM, ALSTM, TCN
+from ..strategy_ai.models import LSTMModel, LSTM, ALSTM, TCN
 
 
 """ 深度学习策略
