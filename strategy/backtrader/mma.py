@@ -17,7 +17,7 @@ from .base import BaseStrategyClass
 """ 多均线策略
 """
  
-class MAStrategyClass(BaseStrategyClass):
+class MMAStrategyClass(BaseStrategyClass):
     '''
     '''
  

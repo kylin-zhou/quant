@@ -19,6 +19,7 @@ import os, sys
 class BaseStrategyClass(bt.Strategy):
     '''策略基类
     '''
+
     def __init__(self):
         # 指标必须要定义在策略类中的初始化函数中, 初始化策略中使用的各项指标、变量
         self.close = self.datas[0].close

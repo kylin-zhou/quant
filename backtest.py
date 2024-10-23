@@ -18,17 +18,16 @@ import quantstats as qs
 # extend pandas functionality with metrics, etc.
 qs.extend_pandas()
 
-from strategy import get_strategy_cls
+from strategy.backtrader import get_strategy_cls
 
 logger.add('backtest.log', level='INFO', encoding='utf-8', format='{message}', mode='w')
  
 def get_data(symbol, period=5, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
-    # history_df = ak.futures_main_sina(trader_code, start_date=start_date, end_date=end_date).iloc[:, :6]
     history_df = ak.futures_zh_minute_sina(symbol=symbol, period=period).iloc[:, :6]
     # history_df = ak.fund_etf_hist_sina(symbol="sh588000")
-    # history_df = pd.read_csv("D:/quant/data/futures/dominant/TA9999.XZCE.30m.csv")
+    # history_df = pd.read_csv("D:/trading/quant/data/futures/dominant/TA9999.XZCE.30m.csv")
 
     # 处理字段命名，以符合 Backtrader 的要求
     history_df.columns = [
@@ -57,12 +56,12 @@ def main(StrategyClass, symbol):
     # 初始资金 10,000
     start_cash = 10000
     cerebro.broker.setcash(start_cash)  # 设置初始资本为 10000
-    cerebro.broker.setcommission(commission=0.001, # 按 0.1% 来收取手续费
-                                margin=0.1, # 保证金比例
+    cerebro.broker.setcommission(commission=0.00001, # 按 0.1% 来收取手续费
+                                margin=0.09, # 保证金比例
                                 mult=10, # 合约乘数
                                 percabs=False, # 表示 commission 以 % 为单位
                                 commtype=bt.CommInfoBase.COMM_FIXED,
-                                stocklike=True)
+                                stocklike=False)
 
     # 加入策略
     cerebro.addstrategy(StrategyClass)
@@ -97,16 +96,16 @@ def main(StrategyClass, symbol):
     print(f"总资金: {round(port_value, 2)}")
     print(f"净收益: {round(pnl, 2)}")
 
-    cerebro.plot(style='candlestick')  # 画图
-    
-    print(" win rate\t{:.3f}\n win_loss_ratio\t{:.3f}\n avg_return\t{:.3f}\n avg_win\t{:.3f}\n avg_loss\t{:.3f}".format(
+    print("win rate\t{:.3f}\nwin_loss_ratio\t{:.3f}\navg_return\t{:.3f}\navg_win\t{:.3f}\navg_loss\t{:.3f}".format(
         qs.stats.win_rate(daily_return), qs.stats.win_loss_ratio(daily_return),
         qs.stats.avg_return(daily_return), qs.stats.avg_win(daily_return), qs.stats.avg_loss(daily_return)
     ))
-    qs.reports.html(daily_return, output='stats.html', title='Stock Sentiment')
+    # qs.reports.html(daily_return, output='stats.html', title='Stock Sentiment')
     # qs.reports.metrics(daily_return, mode="basic")
     
-
+    fig = cerebro.plot(style='candlestick', dpi=600)[0][0]  # 画图
+    fig.savefig(f'./backtest_{strategy.__name__}_{symbol}.png', dpi=600)
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="backtest")
@@ -120,10 +119,12 @@ if __name__ == "__main__":
         "-f",
         "--future",
         help="future contract",
-        default="rb0",
+        nargs="+",
+        default="c0",
     )
     args = parser.parse_args()
 
     strategy = get_strategy_cls[args.strategy]
     
-    main(StrategyClass=strategy, symbol=args.future)
+    for symbol in args.future:
+        main(StrategyClass=strategy, symbol=symbol)

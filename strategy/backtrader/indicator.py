@@ -95,7 +95,7 @@ class ParabolicSAR(bt.Indicator):
     lines = ('sar',)
     params = (('step', 0.02), ('maxaf', 0.2), ('period', 4))
 
-    plotinfo = dict(subplot=False)
+    plotinfo = dict(subplot=False, plot=False)
 
     def __init__(self):
         self.ep = [0.0]
