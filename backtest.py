@@ -25,9 +25,12 @@ logger.add('backtest.log', level='INFO', encoding='utf-8', format='{message}', m
 def get_data(symbol, period=5, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
-    history_df = ak.futures_zh_minute_sina(symbol=symbol, period=period).iloc[:, :6]
+    try:
+        history_df = pd.read_csv("D:/trading/quant/data/futures/{symbol}.csv")
+    except:
+        history_df = ak.futures_zh_minute_sina(symbol=symbol, period=period).iloc[:, :6]
+        history_df.to_csv(f"D:/trading/quant/data/futures/{symbol}.csv", index=False)
     # history_df = ak.fund_etf_hist_sina(symbol="sh588000")
-    # history_df = pd.read_csv("D:/trading/quant/data/futures/dominant/TA9999.XZCE.30m.csv")
 
     # 处理字段命名，以符合 Backtrader 的要求
     history_df.columns = [
@@ -65,6 +68,7 @@ def main(StrategyClass, symbol):
 
     # 加入策略
     cerebro.addstrategy(StrategyClass)
+    cerebro.addwriter(bt.WriterFile, csv=True, out=f'./backtest_result/trading_log_{symbol}.csv')
     # 回测时需要添加 PyFolio 分析器
     cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
     cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='pnl') # 返回收益率时序数据
@@ -104,7 +108,7 @@ def main(StrategyClass, symbol):
     # qs.reports.metrics(daily_return, mode="basic")
     
     fig = cerebro.plot(style='candlestick', dpi=600)[0][0]  # 画图
-    fig.savefig(f'./backtest_{strategy.__name__}_{symbol}.png', dpi=600)
+    fig.savefig(f'./backtest_result/backtest_{strategy.__name__}_{symbol}.png', dpi=1200)
     
 
 if __name__ == "__main__":
@@ -118,9 +122,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--future",
-        help="future contract",
+        help="future contract, example: -f v0 rb0",
         nargs="+",
-        default="c0",
+        required=True
     )
     args = parser.parse_args()
 
