@@ -6,6 +6,8 @@ from .macd import MACDStrategyClass
 from .macd_kdj import MACDKDJStrategyClass
 from .ma_rsi import MARSIStrategyClass
 from .macd_sar import MACDSARStrategyClass
+from .sar import SARStrategyClass
+from .cta import CTAStrategyClass
 
 get_strategy_cls = {
     'ma': MAStrategyClass,
@@ -16,6 +18,8 @@ get_strategy_cls = {
     'macd_kdj': MACDKDJStrategyClass,
     'ma_rsi': MARSIStrategyClass,
     'macd_sar': MACDSARStrategyClass,
+    'sar': SARStrategyClass,
+    'cta': CTAStrategyClass,
     'etf_ma': ETFMAStrategyClass,
     'etf_ama': ETFAMAStrategyClass
 }

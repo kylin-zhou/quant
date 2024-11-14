@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
+from __future__ import (absolute_import, division,
                         unicode_literals)
 
 import backtrader as bt  # 引入backtrader框架
@@ -13,6 +13,7 @@ import talib as ta
 from datetime import datetime
 import argparse
 from loguru import logger
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import quantstats as qs
 # extend pandas functionality with metrics, etc.
@@ -20,13 +21,12 @@ qs.extend_pandas()
 
 from strategy.backtrader import get_strategy_cls
 
-logger.add('backtest.log', level='INFO', encoding='utf-8', format='{message}', mode='w')
  
 def get_data(symbol, period=5, start_date='2022-01-01', end_date='2023-09-27'):
     """https://akshare.akfamily.xyz/data/futures/futures.html#id54
     """
     try:
-        history_df = pd.read_csv("D:/trading/quant/data/futures/{symbol}.csv")
+        history_df = pd.read_csv(f"D:/trading/quant/data/futures/{symbol}.csv")
     except:
         history_df = ak.futures_zh_minute_sina(symbol=symbol, period=period).iloc[:, :6]
         history_df.to_csv(f"D:/trading/quant/data/futures/{symbol}.csv", index=False)
@@ -53,6 +53,7 @@ def get_data(symbol, period=5, start_date='2022-01-01', end_date='2023-09-27'):
     return data
 
 def main(StrategyClass, symbol):
+    logger.info(f'backtesting {symbol}...')
     cerebro = bt.Cerebro()
     cerebro.adddata(get_data(symbol), name=f'{symbol}')
 
@@ -84,32 +85,41 @@ def main(StrategyClass, symbol):
     strat = result[0]
     # # 返回日度收益率序列
     daily_return = pd.Series(strat.analyzers.pnl.get_analysis())
-    # 打印评价指标
-    print("--------------- AnnualReturn -----------------")
-    print(strat.analyzers._AnnualReturn.get_analysis())
-    print("--------------- SharpeRatio -----------------")
-    print(strat.analyzers._SharpeRatio.get_analysis())
-    print("--------------- DrawDown -----------------")
-    print(strat.analyzers._DrawDown.get_analysis())
-
 
     port_value = cerebro.broker.getvalue()  # 获取回测结束后的总资金
     pnl = port_value - start_cash  # 盈亏统计
 
-    print(f"初始资金: {start_cash}")
-    print(f"总资金: {round(port_value, 2)}")
-    print(f"净收益: {round(pnl, 2)}")
+    trade_analysis = strat.analyzers._TradeAnalyzer.get_analysis()
 
-    print("win rate\t{:.3f}\nwin_loss_ratio\t{:.3f}\navg_return\t{:.3f}\navg_win\t{:.3f}\navg_loss\t{:.3f}".format(
-        qs.stats.win_rate(daily_return), qs.stats.win_loss_ratio(daily_return),
-        qs.stats.avg_return(daily_return), qs.stats.avg_win(daily_return), qs.stats.avg_loss(daily_return)
-    ))
+    # 打印评价指标
+    # logger.info("--------------- AnnualReturn -----------------")
+    # logger.info(strat.analyzers._AnnualReturn.get_analysis())
+    # logger.info("--------------- SharpeRatio -----------------")
+    # logger.info(strat.analyzers._SharpeRatio.get_analysis())
+
+    logger.info(f"初始资金: {start_cash}")
+    logger.info(f"总资金: {round(port_value, 2)}")
+    logger.info(f"净收益: {round(pnl, 2)}")
+    logger.info(f"交易次数: {trade_analysis.total.total}")
+    logger.info(f"胜率: {trade_analysis.won.total / trade_analysis.total.total:.2f}")
+    logger.info(f"盈亏比: {trade_analysis.won.pnl.average / abs(trade_analysis.lost.pnl.average):.2f}")  # 需要处理除零错误
+    logger.info(f'回撤: {strat.analyzers._DrawDown.get_analysis().max.drawdown/100:.2f}')
+
+
+    # logger.info("win rate\t{:.3f}\nwin_loss_ratio\t{:.3f}\navg_return\t{:.3f}\navg_win\t{:.3f}\navg_loss\t{:.3f}".format(
+    #     qs.stats.win_rate(daily_return), qs.stats.win_loss_ratio(daily_return),
+    #     qs.stats.avg_return(daily_return), qs.stats.avg_win(daily_return), qs.stats.avg_loss(daily_return)
+    # ))
     # qs.reports.html(daily_return, output='stats.html', title='Stock Sentiment')
     # qs.reports.metrics(daily_return, mode="basic")
     
-    fig = cerebro.plot(style='candlestick', dpi=600)[0][0]  # 画图
-    fig.savefig(f'./backtest_result/backtest_{strategy.__name__}_{symbol}.png', dpi=1200)
-    
+    if args.future is not None:
+        try:
+            fig = cerebro.plot(style='candlestick', dpi=600)[0][0]  # 画图
+            fig.savefig(f'./backtest_result/backtest_{strategy.__name__}_{symbol}.png', dpi=1200)
+        except Exception as e:
+            pass
+            print(f"画图失败, {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="backtest")
@@ -124,11 +134,66 @@ if __name__ == "__main__":
         "--future",
         help="future contract, example: -f v0 rb0",
         nargs="+",
+        default=None,
+        required=False
+    )
+    parser.add_argument(
+        "-m",
+        "--comment",
+        help="comment for backtest, example: -m test",
+        default="",
         required=True
     )
     args = parser.parse_args()
 
+    logger.add(f'backtest_{args.comment}.log', level='INFO', encoding='utf-8', format='{message}', mode='w')
+
     strategy = get_strategy_cls[args.strategy]
     
-    for symbol in args.future:
-        main(StrategyClass=strategy, symbol=symbol)
+    if args.future is None:
+        futures = []
+        for s in ['v','pp','rb','ma','c']: # ,'fg','eb','sr','sa'
+        # for s in ['v']:
+            for t in ["20","21", "22", "23", "24", "25"]:
+                for post in ['01', '05', '09']:
+                    if t == "25" and post != "01": continue
+                    futures.append(f"{s}{t}{post}")
+    else:
+        futures = args.future
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(main, [strategy] * len(futures), futures)
+
+    with open(f'backtest_{args.comment}.log', "r", encoding='utf-8') as f:
+        data = f.readlines()
+
+    profit = 0
+    total_trades, win_rates, win_loss_ratios = [], [], []
+    drawdowns = []
+    for line in data:
+        if line.startswith("净收益"):
+            profit += float(line.split(":")[-1].strip())
+        if line.startswith("胜率"):
+            win_rate = float(line.split(":")[-1].strip())
+            if win_rate > 0 and win_rate < 1:
+                win_rates.append(win_rate)
+        if line.startswith("盈亏比"):
+            win_loss_ratio = float(line.split(":")[-1].strip())
+            if win_loss_ratio > 0 and win_loss_ratio < 10:
+                win_loss_ratios.append(win_loss_ratio)
+        if line.startswith("交易次数"):
+            total_trades.append(float(line.split(":")[-1].strip()))
+        if line.startswith("回撤"):
+            drawdown = float(line.split(":")[-1].strip())
+            if drawdown > 0:
+                drawdowns.append(drawdown)
+
+    logger.info("--------------- Strategy analysis -----------------")
+    logger.info(f"--------------- {strategy.__name__} {args.comment}-----------------")
+    logger.info(
+        (
+            f"\n总收益: {profit}"
+            f"\n交易次数: {np.sum(total_trades)}\n胜率: {np.mean(win_rates)}\n盈亏比: {np.mean(win_loss_ratios)}"
+            f"\n最大回撤: {np.max(drawdowns)}\n平均回撤: {np.mean(drawdowns)}"
+        )
+    )
